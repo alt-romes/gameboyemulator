@@ -13,68 +13,21 @@
  *  > More Opcodes
  *  http://gameboy.mongenel.com/dmg/opcodes.html
  *
+ *  
+ *  Notes:
+ *
+ *  Load memory.c before loading this file (cpu.c)
+ *
  */
 
-#include <stdio.h>
 
 /*
- *  The Gameboy's CPU has 8 registers with size 8bits each
- *  They can be combined to form 16bit registers 
- * 
- *      16bit | hi | lo | name/function
- *      af    | a  | f  | accumulator & flags
- *      bc    | b  | c  |                    
- *      de    | d  | e  | 
- *      hl    | h  | l  | 
- *      sp    | -  | -  | stack pointer
- *      pc    | -  | -  | program counter
- *
- *  f is a special register called "flag register"
- *
- *      bit | name | set | clr | explanation
- *      7   | zf   | Z   | NZ  | zero flag
- *      6   | n    | -   | -   | add/sub flag
- *      5   | h    | -   | -   | half carry flag
- *      4   | cy   | C   | NC  | carry flag 3-0 | -    | -   | -   | unused (value=0)
- *
+ *  Instruction struct with disassembly
  */
-struct registers {
-    union {
-        struct {
-            unsigned char a;
-            unsigned char f;
-        };
-        unsigned short af;
-    };
-    union {
-        struct {
-            unsigned char c;
-            unsigned char b;
-        };
-        unsigned short cb;
-    };
-    union {
-        struct {
-            unsigned char d;
-            unsigned char e;
-        };
-        unsigned short de;
-    };
-    union {
-        struct {
-            unsigned char h;
-            unsigned char l;
-        };
-        unsigned short hl;
-    };
-    unsigned short sp;
-    unsigned short pc;
-};
-
 struct instruction {
     char* disassembly;
     unsigned char operand_length;
-    void* execute;
+    void (*execute)();
 };
 
 /*
@@ -339,22 +292,138 @@ const struct instruction instructions[256] = {
 	{ "RST 0x38", 0, NULL},                     // 0xff
 };
 
-// Registers are global
-struct registers * registers = {0};
 
-static void add(short s) {
-    registers->a += s; 
+/*
+ *  The Gameboy's CPU has 8 registers with size 8bits each
+ *  They can be combined to form 16bit registers 
+ * 
+ *      16bit | hi | lo | name/function
+ *      af    | a  | f  | accumulator & flags
+ *      bc    | b  | c  |                    
+ *      de    | d  | e  | 
+ *      hl    | h  | l  | 
+ *      sp    | -  | -  | stack pointer
+ *      pc    | -  | -  | program counter
+ *
+ *  f is a special register called "flag register"
+ *
+ *      bit | name | explanation
+ *      7   | z    |  zero flag
+ *      6   | n    |  add/sub flag
+ *      5   | h    |  half carry flag
+ *      4   | cy   |  carry flag
+ *      3-0 | -    |  unused (value=0)
+ *
+ */
+struct registers {
+    union {
+        struct {
+            unsigned char a;
+            unsigned char f;
+        };
+        unsigned short af;
+    };
+    union {
+        struct {
+            unsigned char c;
+            unsigned char b;
+        };
+        unsigned short cb;
+    };
+    union {
+        struct {
+            unsigned char d;
+            unsigned char e;
+        };
+        unsigned short de;
+    };
+    union {
+        struct {
+            unsigned char h;
+            unsigned char l;
+        };
+        unsigned short hl;
+    };
+    unsigned short sp;
+    unsigned short pc;
+};
+
+// Registers are global
+struct registers * registers;
+
+
+/*
+ *  Flags operations
+ */
+
+#define FLAG_Z ((unsigned char) 128)
+#define FLAG_N ((unsigned char) 64) 
+#define FLAG_H ((unsigned char) 32) 
+#define FLAG_CY ((unsigned char) 16) 
+
+static void set_flag(unsigned char flag) {
+
+    registers->f |= flag; 
+
 }
 
-int execute_op(unsigned char opcode, FILE*rom) {
-    if (instructions[opcode].execute)
-        printf("not null\n");
-    else {
-        char m[100];
-        sprintf(m, instructions[opcode].disassembly, instructions[opcode].operand_length ? getc(rom) : 0);
-        printf("Operation not defined: %s\n", m);
-        return 1;
+static void clear_flag(unsigned char flag) {
+
+    registers->f &= ~flag;
+
+}
+
+
+
+
+/*
+ *  CPU Operations
+ */
+
+static void add(short s) {
+
+    registers->a += s; 
+
+    // zero flag 
+    if (registers->a == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
+
+    // add/sub flag
+    clear_flag(FLAG_N);
+
+    // half carry flag
+    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
+    if ((s & 0xF) + (registers->a & 0xF) > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    // carry flag
+    if (registers->a < s) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+
+}
+
+void execute_op() {
+
+    unsigned char opcode = memory[registers->pc];
+    if (instructions[opcode].execute) {
+
+        // execute uses the program counter to get the operands
+        instructions[opcode].execute();
+
+    } else {
+
+        printf("Operation not defined: %s\n", instructions[opcode].disassembly);
+
     }
 
-    return 0;
+    registers->pc += 1 + instructions[opcode].operand_length;
+
+}
+
+void init_cpu() {
+
+    registers = malloc(sizeof registers);
+
+    // TODO: set boot rom, set flags
+
 }

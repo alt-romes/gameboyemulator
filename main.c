@@ -1,17 +1,22 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include "memory.c"
 #include "cpu.c"
+
 
 int main(int argc, char *argv[])
 {    
+    // init_memory();
+    init_cpu();
 
-    FILE* rom = fopen("tetris-jp.gb", "rb");
+    load_cartridge("tetris-jp.gb");
 
-    int i = 0;
-    int opcode;
-    while( (opcode = getc(rom)) != EOF && i<10) {
-        execute_op(opcode, rom);
-        i++;
-    }
+    for(int i=0; i<10; i++)
+        execute_op();
 
     return 0;
 }
+
+
+
+// IDEA: make minimal version
