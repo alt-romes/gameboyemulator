@@ -6,17 +6,14 @@
 
 int main(int argc, char *argv[])
 {    
-    // init_memory();
-    init_cpu();
+    load_bootstrap_rom();
+    boot();
 
-    load_cartridge("tetris-jp.gb");
-
-    for(int i=0; i<10; i++)
-        execute_op();
+    /* load_cartridge("tetris-jp.gb"); */
 
     return 0;
 }
 
 
 
-// IDEA: make minimal version
+// IDEA: make smallest possible version

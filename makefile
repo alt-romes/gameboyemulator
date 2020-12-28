@@ -3,3 +3,6 @@ emulator: main.c cpu.c memory.c
 
 clean:
 	rm emulator
+
+run:
+	./emulator
