@@ -7,9 +7,8 @@
 int main(int argc, char *argv[])
 {    
     load_bootstrap_rom();
-    boot();
-
     /* load_cartridge("tetris-jp.gb"); */
+    boot();
 
     return 0;
 }

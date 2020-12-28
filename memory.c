@@ -10,7 +10,7 @@ void load_bootstrap_rom() {
     FILE* bootstrap = fopen("bootstrap_rom", "r");
 
     int opcode;
-    for(int i=0; (opcode = getc(bootstrap)) != EOF && i<0xFFFF; i++)
+    for(int i=0; (opcode = getc(bootstrap)) != EOF && i<0xFFFF+1; i++)
         memory[i] = (unsigned char) opcode;
 
 }
@@ -20,7 +20,7 @@ void load_cartridge(char* filename) {
     FILE* cartridge = fopen(filename, "r");
 
     int opcode;
-    for(int i=0; (opcode = getc(cartridge)) != EOF && i<0xFFFF; i++)
+    for(int i=0; (opcode = getc(cartridge)) != EOF && i<0xFFFF+1; i++)
         memory[i] = (unsigned char) opcode;
         
 }

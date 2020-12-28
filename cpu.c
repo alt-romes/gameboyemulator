@@ -87,10 +87,10 @@ int interrupts = 0;
  *  Flags operations
  */
 
-#define FLAG_Z ((unsigned char) 128)
-#define FLAG_N ((unsigned char) 64) 
-#define FLAG_H ((unsigned char) 32) 
-#define FLAG_CY ((unsigned char) 16) 
+#define FLAG_Z ((unsigned char) 128) // 1000 0000
+#define FLAG_N ((unsigned char) 64) // 0100 0000
+#define FLAG_H ((unsigned char) 32) // 0010 0000
+#define FLAG_CY ((unsigned char) 16) // 0001 0000
 
 static void set_flag(unsigned char flag) {
 
@@ -326,7 +326,6 @@ static void jump_condition_add(void* flag, void* jump_cond) {
         registers.pc += read16bit_operand();
 
 }
-
 
 /*
  * ===============
@@ -745,7 +744,7 @@ const struct instruction instructions_cb[256] = {
 	{ "BIT 7, B", NULL},      // 0x78
 	{ "BIT 7, C", NULL},      // 0x79
 	{ "BIT 7, D", NULL},      // 0x7a
-	{ "BIT 7, E", NULL},      // 0x7b
+	{ "BIT 7, E", bit_op, (void*) 7, &registers.e },      // 0x7b
 	{ "BIT 7, H", bit_op, (void*) 7, &registers.h },      // 0x7c
 	{ "BIT 7, L", NULL},      // 0x7d
 	{ "BIT 7, (HL)", NULL}, // 0x7e
