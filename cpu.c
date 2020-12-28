@@ -595,7 +595,7 @@ const struct instruction instructions[256] = {
 	{ "DEC SP", NULL},                       // 0x3b
 	{ "INC A", inc8bit, &registers.a},                        // 0x3c
 	{ "DEC A", dec8bit, &registers.a},                        // 0x3d
-	{ "LD A, 0x%02X", load8bit_operand, &registers.hl, &registers.a},                 // 0x3e
+	{ "LD A, 0x%02X", load8bit_operand, &registers.a},                 // 0x3e
 	{ "CCF", NULL},                          // 0x3f
 	{ "LD B, B", load8bit, &registers.b, &registers.b},                      // 0x40
 	{ "LD B, C", load8bit, &registers.b, &registers.c},                      // 0x41
