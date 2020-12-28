@@ -227,9 +227,9 @@ static void load16bit_operand(unsigned short * destination, void* _unused) {
  * ===========
  */
 
-static void add(unsigned short s) {
+static void add(unsigned char* s) {
 
-    registers.a += s; 
+    registers.a += *s; 
 
     // zero flag 
     if (registers.a == 0) set_flag(FLAG_Z);
@@ -240,11 +240,11 @@ static void add(unsigned short s) {
 
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
-    if ((s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
+    if ((*s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
     // carry flag
-    if (registers.a < s) set_flag(FLAG_CY);
+    if (registers.a < *s) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
 }
@@ -277,6 +277,33 @@ static void inc8bit(unsigned char* reg) {
     else clear_flag(FLAG_H);
 }
 
+static void cp_operand() {
+
+	unsigned char s = read8bit_operand();
+	unsigned char cp_a = registers.a - s;
+
+    // zero flag 
+    if (cp_a == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
+
+    // add/sub flag
+    set_flag(FLAG_N);
+
+    // half carry flag
+    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
+    if ((s & 0xF) + (cp_a & 0xF) > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    // carry flag
+    if (cp_a < s) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+}
+
+static void adc (unsigned char* regs) {
+	unsigned char value = *regs;
+	if(registers.f & (1<<3)) value++;
+	add(&value);
+}
 
 /*
  * =============
@@ -302,6 +329,10 @@ static void bit_op(void* n, unsigned char * reg) {
  *  Jumps
  * =============
  */
+
+static void jump_operand(void* unused , void* unused2) {
+	registers.pc = read16bit_operand();
+}
 
 // Sets program counter to operand
 static void jump_condition(void* flag, void* jump_cond) {
@@ -358,7 +389,7 @@ struct instruction {
  * Instruction disassemblies copied from https://github.com/CTurt/Cinoop
  */
 const struct instruction instructions[256] = {
-	{ "NOP", NULL},                          // 0x00
+	{ "NOP", nop},                          // 0x00
 	{ "LD BC, 0x%04X", NULL},                // 0x01
 	{ "LD (BC), A", NULL},                   // 0x02
 	{ "INC BC", NULL},                       // 0x03
@@ -442,9 +473,9 @@ const struct instruction instructions[256] = {
 	{ "LD D, C", NULL},                      // 0x51
 	{ "LD D, D", NULL},                      // 0x52
 	{ "LD D, E", NULL},                      // 0x53
-	{ "LD D, H", NULL},                      // 0x54
-	{ "LD D, L", NULL},                      // 0x55
-	{ "LD D, (HL)", NULL},                   // 0x56
+	{ "LD D, H", load8bit, &registers.d, &registers.h},                      // 0x54
+	{ "LD D, L", load8bit, &registers.d, &registers.l},                      // 0x55
+	{ "LD D, (HL)", load8bit_from_mem, &registers.d, &registers.hl},                   // 0x56
 	{ "LD D, A", NULL},                      // 0x57
 	{ "LD E, B", NULL},                      // 0x58
 	{ "LD E, C", NULL},                      // 0x59
@@ -498,7 +529,7 @@ const struct instruction instructions[256] = {
 	{ "ADC C", NULL},                        // 0x89
 	{ "ADC D", NULL},                        // 0x8a
 	{ "ADC E", NULL},                        // 0x8b
-	{ "ADC H", NULL},                        // 0x8c
+	{ "ADC A,H", adc, &registers.h},                        // 0x8c
 	{ "ADC L", NULL},                        // 0x8d
 	{ "ADC (HL)", NULL},                     // 0x8e
 	{ "ADC A", NULL},                        // 0x8f
@@ -553,7 +584,7 @@ const struct instruction instructions[256] = {
 	{ "RET NZ", NULL},                       // 0xc0
 	{ "POP BC", NULL},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
-	{ "JP 0x%04X", NULL},                    // 0xc3
+	{ "JP 0x%04X", jump_operand},                    // 0xc3
 	{ "CALL NZ, 0x%04X", NULL},              // 0xc4
 	{ "PUSH BC", NULL},                      // 0xc5
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
@@ -612,7 +643,7 @@ const struct instruction instructions[256] = {
 	{ "EI", enable_interrupts},                           // 0xfb
 	{ "UNKNOWN", NULL},                      // 0xfc
 	{ "UNKNOWN", NULL},                      // 0xfd
-	{ "CP 0x%02X", NULL},                    // 0xfe
+	{ "CP 0x%02X", cp_operand},                    // 0xfe
 	{ "RST 0x38", NULL},                     // 0xff
 };
 
@@ -920,7 +951,6 @@ void execute() {
 void boot() {
 
     debug();
-
     while (1) {
         execute();
     }
