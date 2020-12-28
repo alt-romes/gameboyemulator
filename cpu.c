@@ -228,6 +228,13 @@ static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
 
 }
 
+static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
+
+    *lo_reg = memory[registers.sp++];
+    *hi_reg = memory[registers.sp++];
+
+}
+
 /*
  * ===========
  *  8-Bit ALU
@@ -268,7 +275,7 @@ static void adc_from_mem(unsigned char* reg_with_pointer) {
     adc(&memory[*reg_with_pointer]);
 }
 
-static void xor_reg(unsigned char* reg, void* _unused) { 
+static void xor_reg(unsigned char* reg) { 
 
     registers.a ^= *reg;
 
@@ -283,6 +290,10 @@ static void xor_reg(unsigned char* reg, void* _unused) {
 
 }
 
+static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
+    xor_reg(&memory[*reg_with_pointer]);
+}
+
 static void inc8bit(unsigned char* reg) {
 
     (*reg)++;
@@ -294,6 +305,7 @@ static void inc8bit(unsigned char* reg) {
 
     if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
+
 }
 
 static void cp_operand() {
@@ -327,8 +339,32 @@ static void cp_operand() {
  */
 
 static void rl_op(unsigned char* reg) {
-    // TODO:
+
+    // check if carry is set
+    unsigned char hadcarry = 0;
+	if (registers.f & (1<<3)) hadcarry++;
+
+    // check highest bit from reg to check if carry should be set
+    if ((*reg) & 0x80 > 0) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+
+    // rotate
+    *reg <<= *reg;
+
+    // if had carry, set it to the lowest bit
+    if (hadcarry) *reg |= 0x01;
+    
+    clear_flag(FLAG_N);
+    clear_flag(FLAG_H);
+
 }
+
+static void rla_op() {
+
+    rl_op(&registers.a);
+    clear_flag(FLAG_Z);
+}
+
 
 /*
  * =============
@@ -340,7 +376,6 @@ static void bit_op(void* n, unsigned char * reg) {
 
     unsigned char n_byte = (unsigned char) n;
 
-    // TODO: hmmmmm
     if ( *reg & (1 << n_byte)  ) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
 
@@ -457,7 +492,7 @@ const struct instruction instructions[256] = {
 	{ "INC D", NULL},                        // 0x14
 	{ "DEC D", NULL},                        // 0x15
 	{ "LD D, 0x%02X", NULL},                 // 0x16
-	{ "RLA", NULL},                          // 0x17
+	{ "RLA", rl_op, &registers.a},                          // 0x17
 	{ "JR 0x%02X", NULL},                    // 0x18
 	{ "ADD HL, DE", NULL},                   // 0x19
 	{ "LD A, (DE)", load8bit_from_mem, &registers.a, &registers.de },                   // 0x1a
@@ -602,13 +637,13 @@ const struct instruction instructions[256] = {
 	{ "AND L", NULL},                        // 0xa5
 	{ "AND (HL)", NULL},                     // 0xa6
 	{ "AND A", NULL},                        // 0xa7
-	{ "XOR B", NULL},                        // 0xa8
-	{ "XOR C", NULL},                        // 0xa9
-	{ "XOR D", NULL},                        // 0xaa
-	{ "XOR E", NULL},                        // 0xab
-	{ "XOR H", NULL},                        // 0xac
-	{ "XOR L", NULL},                        // 0xad
-	{ "XOR (HL)", NULL},                     // 0xae
+	{ "XOR B", xor_reg, &registers.b},                        // 0xa8
+	{ "XOR C", xor_reg, &registers.c},                        // 0xa9
+	{ "XOR D", xor_reg, &registers.d},                        // 0xaa
+	{ "XOR E", xor_reg, &registers.e},                        // 0xab
+	{ "XOR H", xor_reg, &registers.h},                        // 0xac
+	{ "XOR L", xor_reg, &registers.l},                        // 0xad
+	{ "XOR (HL)", xor_reg_from_mem, &registers.hl},                     // 0xae
 	{ "XOR A", xor_reg, &registers.a},                        // 0xaf
 	{ "OR B", NULL},                         // 0xb0
 	{ "OR C", NULL},                         // 0xb1
@@ -627,7 +662,7 @@ const struct instruction instructions[256] = {
 	{ "CP (HL)", NULL},                      // 0xbe
 	{ "CP A", NULL},                         // 0xbf
 	{ "RET NZ", NULL},                       // 0xc0
-	{ "POP BC", NULL},                       // 0xc1
+	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
 	{ "CALL NZ, 0x%04X", NULL},              // 0xc4
