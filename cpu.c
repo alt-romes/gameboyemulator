@@ -121,6 +121,11 @@ static unsigned char read8bit_operand() {
     return memory[registers.pc++];
 }
 
+static char read8bit_signed_operand() {
+    printf("signed 8-bit read: %d\n", (char) memory[registers.pc]);
+    return (char) memory[registers.pc++];
+}
+
 static unsigned short read16bit_operand() {
 
     unsigned char operand_low = memory[registers.pc++];
@@ -358,7 +363,7 @@ static void rl_op(unsigned char* reg) {
 	if (registers.f & (1<<3)) hadcarry++;
 
     // check highest bit from reg to check if carry should be set
-    if ((*reg) & 0x80 > 0) set_flag(FLAG_CY);
+    if (((*reg) & 0x80) > 0) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
     // rotate
@@ -418,26 +423,30 @@ static void jump_operand(void* unused , void* unused2) {
 }
 
 // Sets program counter to operand
-static void jump_condition(void* flag, void* jump_cond) {
+static void jump_condition_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
     unsigned char jump_condb = (unsigned char) jump_cond;
 
+    unsigned short operand = read16bit_operand();
+    
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
-        registers.pc = read16bit_operand();
+        registers.pc = operand;
 
 }
 
 // Adds operand to the current program counter
-static void jump_condition_add(void* flag, void* jump_cond) {
+static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
     unsigned char jump_condb = (unsigned char) jump_cond;
 
+    char operand = read8bit_signed_operand();
+
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
-        registers.pc += read16bit_operand();
+        registers.pc += operand; 
 
 }
 
@@ -515,7 +524,7 @@ const struct instruction instructions[256] = {
 	{ "INC D", NULL},                        // 0x14
 	{ "DEC D", NULL},                        // 0x15
 	{ "LD D, 0x%02X", NULL},                 // 0x16
-	{ "RLA", rl_op, &registers.a},                          // 0x17
+	{ "RLA", rla_op},                          // 0x17
 	{ "JR 0x%02X", NULL},                    // 0x18
 	{ "ADD HL, DE", NULL},                   // 0x19
 	{ "LD A, (DE)", load8bit_from_mem, &registers.a, &registers.de },                   // 0x1a
@@ -524,7 +533,7 @@ const struct instruction instructions[256] = {
 	{ "DEC E", NULL},                        // 0x1d
 	{ "LD E, 0x%02X", NULL},                 // 0x1e
 	{ "RRA", NULL},                          // 0x1f
-	{ "JR NZ, 0x%02X", jump_condition_add, (void*) FLAG_Z, 0 },                // 0x20
+	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
 	{ "LDI (HL), A", NULL},                  // 0x22
 	{ "INC HL", NULL},                       // 0x23
@@ -1019,6 +1028,7 @@ void execute_cb() {
     struct instruction instruction = instructions_cb[opcode];
     if (instruction.execute) {
 
+        printf("CB %s -> 0x%x\n", instruction.disassembly, opcode);
         instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
 
     } else {
@@ -1054,7 +1064,9 @@ void execute() {
 void boot() {
 
     debug();
-    while (1) {
+
+    /* while (registers.pc < 257) { */
+    while (registers.pc < 257) {
         execute();
     }
 
