@@ -1,0 +1,54 @@
+Instruction Number:
+
+23: Call Graphics Routine
+
+57: Stops looping, proceeds to program counter 163 -> (continuation of graphics routine after loop)
+
+62: Return from Graphics Routine
+63: Call to inside graphics routine again but 1 instruction ahead (?)
+
+96: Stops looping again, proceeds to program counter 163 again
+
+101: Return from Graphics Routine, resume at program counter 46
+
+104: Compare with 52, A=5... until it's equal, loop...
+
+2456: Compare with 52, A=33...
+
+4052: Compare with 52, A=52...
+4053: Stops looping - move program counter to 52
+
+4060: Dec B, B=8
+4061: Loop while B > 0
+
+4102: Dec B, B=1
+4103: Stops looping - move program counter to 64
+
+4108: Dec A, A=24
+4109: Jumps ahead if A == 0 after decrementing
+4110: Continues, program counter 77
+4111: Dec C, C=11
+4112: Loops back until C == 0 (a.d.)
+
+4158: Dec A, A=14
+
+4161: Dec C, C=2
+
+4166: Dec C, C=1
+4167: Continues, because C == 0, moves to program counter 81
+
+4169: Jump back to the loop (where we just were decrementing A and C)...
+4170: Load 12 to C, C is now =12
+4171: Dec A, A=13
+4172: If A == 0, it'll jump to ahead of this loop...
+
+4233: Load 12 to C, C is now =12
+4234: Dec A, A=1
+4235: Jumps ahead, because A=0. Program counter moves to 85 -> Enter "Scroll logo on screen, and play logo sound"
+
+4245: LD A, (0xFF + offset). Has comment on boot rom: "wait for screen frame" (?)
+4246: CP 144, A=0
+4253: Loops back if A != 144, and A=0 rn
+(Epiphany#1)
+    CPU will loop until the memory position in the IO memory space is 144. That memory space needs to be filled by something that appears to be called "screen frame".
+

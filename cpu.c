@@ -75,7 +75,13 @@ struct registers {
         unsigned short hl;
     };
     unsigned short sp;
-    unsigned short pc;
+    union {
+        struct {
+            unsigned char pclo;
+            unsigned char pchi;
+        };
+        unsigned short pc;
+    };
 };
 
 // Registers are global
@@ -184,8 +190,21 @@ static void load8bit_to_mem(unsigned short * reg_with_pointer, unsigned char * s
     load8bit(&memory[*reg_with_pointer], source);
 }
 
+static void load8bit_to_mem_operand(unsigned char * source) { 
+    unsigned short address = read16bit_operand();
+    load8bit(&memory[address], source);
+}
+
 static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_with_pointer) {
     load8bit(destination, &memory[*reg_with_pointer]);
+}
+
+static void load8bit_from_io_mem_operand(unsigned char* destination) {
+
+    unsigned short address = 0xFF00 + read8bit_operand();
+
+    load8bit_from_mem(destination, &address);
+
 }
 
 static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) { 
@@ -195,18 +214,19 @@ static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) {
     (*reg_with_pointer)--;
 }
 
-static void load8bit_to_mem_with_offset(unsigned char* offset, unsigned char* source) {
+
+static void load8bit_to_io_mem(unsigned char* offsetreg, unsigned char* source) {
     
-    unsigned short address = 0xFF00 + *offset;
+    unsigned short address = 0xFF00 + *offsetreg;
 
     load8bit_to_mem(&address, source);
 }
 
-static void load8bit_to_mem_with_offset_operand(unsigned char* source, void* _unused) {
+static void load8bit_to_io_mem_operand(unsigned char* source) {
     
     unsigned char operand = read8bit_operand();
 
-    load8bit_to_mem_with_offset(&operand, source);
+    load8bit_to_io_mem(&operand, source);
 }
 
 static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
@@ -215,6 +235,7 @@ static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
 
 	(*reg_with_pointer)++;
 }
+
 
 /*
  * =============
@@ -226,7 +247,7 @@ static void load16bit(unsigned short * destination, unsigned short *source) {
     *destination = *source;
 }
 
-static void load16bit_operand(unsigned short * destination, void* _unused) {
+static void load16bit_operand(unsigned short * destination) {
 
     unsigned short operand = read16bit_operand();
 
@@ -333,10 +354,12 @@ static void dec8bit(unsigned char* reg) {
 	else clear_flag(FLAG_H);
 }	
 
-static void cp_operand() {
+static void cp_op(unsigned char* reg) {
 
-	unsigned char s = read8bit_operand();
+    unsigned char s = *reg;
 	unsigned char cp_a = registers.a - s;
+
+    printf("DO: %d - %d\nRESULT OF CP IS = %d\n", registers.a, s, cp_a);
 
     // zero flag 
     if (cp_a == 0) set_flag(FLAG_Z);
@@ -355,10 +378,16 @@ static void cp_operand() {
     else clear_flag(FLAG_CY);
 }
 
+static void cp_operand() {
+
+	unsigned char s = read8bit_operand();
+    cp_op(&s);
+}
+
 /*
- * =============
- *  16-Bit Loads
- * ==============
+ * ===================
+ *  16-Bit Arithmetic
+ * ===================
  */
 
 // TODO: probably all ALU 16 bit is setting the flags wrong
@@ -380,6 +409,16 @@ static void add16bit(unsigned short* source) {
     else clear_flag(FLAG_CY);
 }
 
+static void inc16bit(unsigned short* reg) {
+
+    (*reg)++;
+
+}
+
+static void dec16bit(unsigned short* reg) {
+
+    (*reg)--;
+}
 
 
 /*
@@ -450,8 +489,13 @@ static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
  * =============
  */
 
+
 static void jump_operand(void* unused , void* unused2) {
 	registers.pc = read16bit_operand();
+}
+
+static void jump_add_operand() {
+    registers.pc += read8bit_signed_operand(); 
 }
 
 // Sets program counter to operand
@@ -503,6 +547,17 @@ static void call_operand() {
 }
 
 /*
+ * =============
+ *  Returns
+ * =============
+ */
+
+static void ret_op() {
+    registers.pclo = memory[registers.sp++];
+    registers.pchi = memory[registers.sp++];
+}
+
+/*
  * ===============
  *  Miscellaneous 
  * ===============
@@ -534,9 +589,9 @@ struct instruction {
  */
 const struct instruction instructions[256] = {
 	{ "NOP", nop},                          // 0x00
-	{ "LD BC, 0x%04X", NULL},                // 0x01
-	{ "LD (BC), A", NULL},                   // 0x02
-	{ "INC BC", NULL},                       // 0x03
+	{ "LD BC, 0x%04X", load16bit_operand, &registers.bc},                // 0x01
+	{ "LD (BC), A", load8bit_to_mem, &registers.bc, &registers.a },                   // 0x02
+	{ "INC BC", inc16bit, &registers.bc},                       // 0x03
 	{ "INC B", inc8bit, &registers.b},                        // 0x04
 	{ "DEC B", dec8bit, &registers.b},                        // 0x05
 	{ "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
@@ -544,55 +599,55 @@ const struct instruction instructions[256] = {
 	{ "LD (0x%04X), SP", NULL},              // 0x08
 	{ "ADD HL, BC", add16bit, &registers.hl, &registers.bc},                   // 0x09
 	{ "LD A, (BC)", load8bit_from_mem, &registers.a, &registers.bc},                   // 0x0a
-	{ "DEC BC", NULL},                       // 0x0b
+	{ "DEC BC", dec16bit, &registers.bc},                       // 0x0b
 	{ "INC C", inc8bit, &registers.c },                        // 0x0c
 	{ "DEC C", dec8bit, &registers.c},                        // 0x0d
 	{ "LD C, 0x%02X", load8bit_operand, &registers.c },                 // 0x0e
 	{ "RRCA", NULL},                         // 0x0f
 	{ "STOP", NULL},                         // 0x10
 	{ "LD DE, 0x%04X", load16bit_operand, &registers.de },                // 0x11
-	{ "LD (DE), A", NULL},                   // 0x12
-	{ "INC DE", NULL},                       // 0x13
+	{ "LD (DE), A", load8bit_to_mem, &registers.de, &registers.a},                   // 0x12
+	{ "INC DE", inc16bit, &registers.de},                       // 0x13
 	{ "INC D", inc8bit, &registers.d},                        // 0x14
 	{ "DEC D", dec8bit, &registers.d},                        // 0x15
-	{ "LD D, 0x%02X", NULL},                 // 0x16
+	{ "LD D, 0x%02X", load8bit_operand, &registers.d},                 // 0x16
 	{ "RLA", rla_op},                          // 0x17
-	{ "JR 0x%02X", NULL},                    // 0x18
+	{ "JR 0x%02X", jump_add_operand},                    // 0x18
 	{ "ADD HL, DE", add16bit, &registers.hl, &registers.de},                   // 0x19
 	{ "LD A, (DE)", load8bit_from_mem, &registers.a, &registers.de },                   // 0x1a
-	{ "DEC DE", NULL},                       // 0x1b
+	{ "DEC DE", dec16bit, &registers.de},                       // 0x1b
 	{ "INC E", inc8bit, &registers.e},                        // 0x1c
 	{ "DEC E", dec8bit, &registers.e},                        // 0x1d
-	{ "LD E, 0x%02X", NULL},                 // 0x1e
+	{ "LD E, 0x%02X", load8bit_operand, &registers.e},                 // 0x1e
 	{ "RRA", NULL},                          // 0x1f
 	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
 	{ "LDI (HL), A", load8bit_inc_to_mem, &registers.hl},                  // 0x22
-	{ "INC HL", NULL},                       // 0x23
+	{ "INC HL", inc16bit, &registers.hl},                       // 0x23
 	{ "INC H", inc8bit, &registers.h},                        // 0x24
 	{ "DEC H", dec8bit, &registers.h},                        // 0x25
-	{ "LD H, 0x%02X", NULL},                 // 0x26
+	{ "LD H, 0x%02X", load8bit_operand, &registers.h},                 // 0x26
 	{ "DAA", NULL},                          // 0x27
-	{ "JR Z, 0x%02X", NULL},                 // 0x28
+	{ "JR Z, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 1},                 // 0x28
 	{ "ADD HL, HL", add16bit, &registers.hl},                   // 0x29
 	{ "LDI A, (HL)", NULL},                  // 0x2a
-	{ "DEC HL", NULL},                       // 0x2b
+	{ "DEC HL", dec16bit, &registers.hl},                       // 0x2b
 	{ "INC L", inc8bit, &registers.l},                        // 0x2c
 	{ "DEC L", dec8bit, &registers.l},                        // 0x2d
-	{ "LD L, 0x%02X", NULL},                 // 0x2e
+	{ "LD L, 0x%02X", load8bit_operand, &registers.d},                 // 0x2e
 	{ "CPL", NULL},                          // 0x2f
-	{ "JR NC, 0x%02X", NULL},                // 0x30
+	{ "JR NC, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, 0},                // 0x30
 	{ "LD SP, 0x%04X", load16bit_operand, &registers.sp},             // 0x31
 	{ "LDD (HL), A", load8bit_dec_to_mem, &registers.hl},                  // 0x32
-	{ "INC SP", NULL},                       // 0x33
+	{ "INC SP", inc16bit, &registers.sp},                       // 0x33
 	{ "INC (HL)", NULL},                     // 0x34
 	{ "DEC (HL)", NULL},                     // 0x35
 	{ "LD (HL), 0x%02X", NULL},              // 0x36
 	{ "SCF", NULL},                          // 0x37
-	{ "JR C, 0x%02X", NULL},                 // 0x38
-	{ "ADD HL, SP", NULL},                   // 0x39
+	{ "JR C, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 1},                 // 0x38
+	{ "ADD HL, SP", add16bit, &registers.hl, &registers.sp},                   // 0x39
 	{ "LDD A, (HL)", NULL},                  // 0x3a
-	{ "DEC SP", NULL},                       // 0x3b
+	{ "DEC SP", dec16bit, &registers.sp},                       // 0x3b
 	{ "INC A", inc8bit, &registers.a},                        // 0x3c
 	{ "DEC A", dec8bit, &registers.a},                        // 0x3d
 	{ "LD A, 0x%02X", load8bit_operand, &registers.a},                 // 0x3e
@@ -717,14 +772,14 @@ const struct instruction instructions[256] = {
 	{ "OR L", NULL},                         // 0xb5
 	{ "OR (HL)", NULL},                      // 0xb6
 	{ "OR A", NULL},                         // 0xb7
-	{ "CP B", NULL},                         // 0xb8
-	{ "CP C", NULL},                         // 0xb9
-	{ "CP D", NULL},                         // 0xba
-	{ "CP E", NULL},                         // 0xbb
-	{ "CP H", NULL},                         // 0xbc
-	{ "CP L", NULL},                         // 0xbd
+	{ "CP B", cp_op, &registers.b},                         // 0xb8
+	{ "CP C", cp_op, &registers.c},                         // 0xb9
+	{ "CP D", cp_op, &registers.d},                         // 0xba
+	{ "CP E", cp_op, &registers.e},                         // 0xbb
+	{ "CP H", cp_op, &registers.h},                         // 0xbc
+	{ "CP L", cp_op, &registers.l},                         // 0xbd
 	{ "CP (HL)", NULL},                      // 0xbe
-	{ "CP A", NULL},                         // 0xbf
+	{ "CP A", cp_op, &registers.a},                         // 0xbf
 	{ "RET NZ", NULL},                       // 0xc0
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
@@ -734,7 +789,7 @@ const struct instruction instructions[256] = {
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
 	{ "RST 0x00", NULL},                     // 0xc7
 	{ "RET Z", NULL},                        // 0xc8
-	{ "RET", NULL},                          // 0xc9
+	{ "RET", ret_op},                          // 0xc9
 	{ "JP Z, 0x%04X", NULL},                 // 0xca
 	{ "CB %02X", execute_cb},                      // 0xcb
 	{ "CALL Z, 0x%04X", NULL},               // 0xcc
@@ -757,9 +812,9 @@ const struct instruction instructions[256] = {
 	{ "UNKNOWN", NULL},                      // 0xdd
 	{ "SBC 0x%02X", NULL},                   // 0xde
 	{ "RST 0x18", NULL},                     // 0xdf
-	{ "LD (0xFF00 + 0x%02X), A", load8bit_to_mem_with_offset_operand, &registers.a},      // 0xe0
+	{ "LD (0xFF00 + 0x%02X), A", load8bit_to_io_mem_operand, &registers.a},      // 0xe0
 	{ "POP HL", NULL},                       // 0xe1
-	{ "LD (0xFF00 + C), A", load8bit_to_mem_with_offset, &registers.c, &registers.a},           // 0xe2
+	{ "LD (0xFF00 + C), A", load8bit_to_io_mem, &registers.c, &registers.a},           // 0xe2
 	{ "UNKNOWN", NULL},                      // 0xe3
 	{ "UNKNOWN", NULL},                      // 0xe4
 	{ "PUSH HL", push_op, &registers.h, &registers.l},                      // 0xe5
@@ -767,13 +822,13 @@ const struct instruction instructions[256] = {
 	{ "RST 0x20", NULL},                     // 0xe7
 	{ "ADD SP,0x%02X", NULL},                // 0xe8
 	{ "JP HL", NULL},                        // 0xe9
-	{ "LD (0x%04X), A", NULL},               // 0xea
+	{ "LD (0x%04X), A", load8bit_to_mem_operand, &registers.a},               // 0xea
 	{ "UNKNOWN", NULL},                      // 0xeb
 	{ "UNKNOWN", NULL},                      // 0xec
 	{ "UNKNOWN", NULL},                      // 0xed
 	{ "XOR 0x%02X", NULL},                   // 0xee
 	{ "RST 0x28", NULL},                     // 0xef
-	{ "LD A, (0xFF00 + 0x%02X)", NULL},      // 0xf0
+	{ "LD A, (0xFF00 + 0x%02X)", load8bit_from_io_mem_operand, &registers.a},      // 0xf0
 	{ "POP AF", NULL},                       // 0xf1
 	{ "LD A, (0xFF00 + C)", NULL},           // 0xf2
 	{ "DI", NULL},                           // 0xf3
@@ -1097,8 +1152,9 @@ void boot() {
 
     debug();
 
-    /* while (registers.pc < 257) { */
-    while (registers.pc < 257) {
+    int i=0;
+    while (registers.pc < 257 && i++ < 4263) {
+        printf("Instruction Number: %d\n", i);
         execute();
     }
 
