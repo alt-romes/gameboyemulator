@@ -221,6 +221,13 @@ static void load16bit_operand(unsigned short * destination, void* _unused) {
     load16bit(destination, &operand);
 }
 
+static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
+    
+    memory[--registers.sp] = hi_reg;
+    memory[--registers.sp] = lo_reg;
+
+}
+
 /*
  * ===========
  *  8-Bit ALU
@@ -277,6 +284,15 @@ static void inc8bit(unsigned char* reg) {
     else clear_flag(FLAG_H);
 }
 
+/*
+ * ==================
+ *  Rotates & Shifts
+ * ==================
+ */
+
+static void rl_op(unsigned char* reg) {
+    // TODO:
+}
 
 /*
  * =============
@@ -328,6 +344,26 @@ static void jump_condition_add(void* flag, void* jump_cond) {
 }
 
 /*
+ * =============
+ *  Calls 
+ * =============
+ */
+
+static void call_operand() {
+
+    unsigned short operand = read16bit_operand();
+
+    unsigned char pc_high = (registers.pc >> 8) & 0xFF;
+    unsigned char pc_low = registers.pc & 0xFF;
+
+    memory[--registers.sp] = pc_high;
+    memory[--registers.sp] = pc_low;
+
+    registers.pc = operand; 
+    
+}
+
+/*
  * ===============
  *  Miscellaneous 
  * ===============
@@ -364,7 +400,7 @@ const struct instruction instructions[256] = {
 	{ "INC BC", NULL},                       // 0x03
 	{ "INC B", NULL},                        // 0x04
 	{ "DEC B", NULL},                        // 0x05
-	{ "LD B, 0x%02X", NULL},                 // 0x06
+	{ "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
 	{ "RLCA", NULL},                         // 0x07
 	{ "LD (0x%04X), SP", NULL},              // 0x08
 	{ "ADD HL, BC", NULL},                   // 0x09
@@ -437,7 +473,7 @@ const struct instruction instructions[256] = {
 	{ "LD C, H", NULL},                      // 0x4c
 	{ "LD C, L", NULL},                      // 0x4d
 	{ "LD C, (HL)", NULL},                   // 0x4e
-	{ "LD C, A", NULL},                      // 0x4f
+	{ "LD C, A", load8bit, &registers.c, &registers.a},                      // 0x4f
 	{ "LD D, B", NULL},                      // 0x50
 	{ "LD D, C", NULL},                      // 0x51
 	{ "LD D, D", NULL},                      // 0x52
@@ -555,7 +591,7 @@ const struct instruction instructions[256] = {
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
 	{ "JP 0x%04X", NULL},                    // 0xc3
 	{ "CALL NZ, 0x%04X", NULL},              // 0xc4
-	{ "PUSH BC", NULL},                      // 0xc5
+	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
 	{ "RST 0x00", NULL},                     // 0xc7
 	{ "RET Z", NULL},                        // 0xc8
@@ -563,7 +599,7 @@ const struct instruction instructions[256] = {
 	{ "JP Z, 0x%04X", NULL},                 // 0xca
 	{ "CB %02X", execute_cb},                      // 0xcb
 	{ "CALL Z, 0x%04X", NULL},               // 0xcc
-	{ "CALL 0x%04X", NULL},                  // 0xcd
+	{ "CALL 0x%04X", call_operand},                  // 0xcd
 	{ "ADC 0x%02X", NULL},                   // 0xce
 	{ "RST 0x08", NULL},                     // 0xcf
 	{ "RET NC", NULL},                       // 0xd0
@@ -638,7 +674,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RRC (HL)", NULL},      // 0x0e
 	{ "RRC A", NULL},           // 0x0f
 	{ "RL B", NULL},             // 0x10
-	{ "RL C", NULL},             // 0x11
+	{ "RL C", rl_op, &registers.c},             // 0x11
 	{ "RL D", NULL},             // 0x12
 	{ "RL E", NULL},             // 0x13
 	{ "RL H", NULL},             // 0x14
