@@ -7,21 +7,14 @@ unsigned char memory[0xFFFF+1] = {0};
 
 void load_bootstrap_rom() {
 
-    FILE* bootstrap = fopen("bootstrap_rom", "r");
-
-    int opcode;
-    for(int i=0; (opcode = getc(bootstrap)) != EOF && i<0xFFFF+1; i++)
-        memory[i] = (unsigned char) opcode;
+    FILE* bootstrap = fopen("bootstrap_rom", "rb");
+    fread(memory, sizeof(unsigned char), 256, bootstrap);
 
 }
 
 void load_cartridge(char* filename) {
 
-    FILE* cartridge = fopen(filename, "r");
-
-    int opcode;
-    for(int i=0; (opcode = getc(cartridge)) != EOF && i<0xFFFF+1; i++)
-        memory[i] = (unsigned char) opcode;
-        
+    FILE* cartridge = fopen(filename, "rb");
+    fread(memory, sizeof(unsigned char), 32768, cartridge);
 }
 

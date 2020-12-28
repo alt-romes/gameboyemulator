@@ -223,8 +223,8 @@ static void load16bit_operand(unsigned short * destination, void* _unused) {
 
 static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
     
-    memory[--registers.sp] = hi_reg;
-    memory[--registers.sp] = lo_reg;
+    memory[--registers.sp] = *hi_reg;
+    memory[--registers.sp] = *lo_reg;
 
 }
 
@@ -234,9 +234,9 @@ static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
  * ===========
  */
 
-static void add(unsigned short s) {
+static void add(unsigned char* s) {
 
-    registers.a += s; 
+    registers.a += *s; 
 
     // zero flag 
     if (registers.a == 0) set_flag(FLAG_Z);
@@ -247,13 +247,25 @@ static void add(unsigned short s) {
 
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
-    if ((s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
+    if ((*s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
     // carry flag
-    if (registers.a < s) set_flag(FLAG_CY);
+    if (registers.a < *s) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
+}
+
+static void add_from_mem(unsigned char* reg_with_pointer, void* _unused) { add(&memory[*reg_with_pointer]); }
+
+static void adc (unsigned char* regs) {
+	unsigned char value = *regs;
+	if(registers.f & (1<<3)) value++;
+	add(&value);
+}
+
+static void adc_from_mem(unsigned char* reg_with_pointer) {
+    adc(&memory[*reg_with_pointer]);
 }
 
 static void xor_reg(unsigned char* reg, void* _unused) { 
@@ -283,6 +295,30 @@ static void inc8bit(unsigned char* reg) {
     if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 }
+
+static void cp_operand() {
+
+	unsigned char s = read8bit_operand();
+	unsigned char cp_a = registers.a - s;
+
+    // zero flag 
+    if (cp_a == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
+
+    // add/sub flag
+    set_flag(FLAG_N);
+
+    // half carry flag
+    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
+    if ((s & 0xF) + (cp_a & 0xF) > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    // carry flag
+    if (cp_a < s) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+}
+
+
 
 /*
  * ==================
@@ -318,6 +354,10 @@ static void bit_op(void* n, unsigned char * reg) {
  *  Jumps
  * =============
  */
+
+static void jump_operand(void* unused , void* unused2) {
+	registers.pc = read16bit_operand();
+}
 
 // Sets program counter to operand
 static void jump_condition(void* flag, void* jump_cond) {
@@ -394,7 +434,7 @@ struct instruction {
  * Instruction disassemblies copied from https://github.com/CTurt/Cinoop
  */
 const struct instruction instructions[256] = {
-	{ "NOP", NULL},                          // 0x00
+	{ "NOP", nop},                          // 0x00
 	{ "LD BC, 0x%04X", NULL},                // 0x01
 	{ "LD (BC), A", NULL},                   // 0x02
 	{ "INC BC", NULL},                       // 0x03
@@ -458,86 +498,86 @@ const struct instruction instructions[256] = {
 	{ "DEC A", NULL},                        // 0x3d
 	{ "LD A, 0x%02X", load8bit_operand, &registers.hl, &registers.a},                 // 0x3e
 	{ "CCF", NULL},                          // 0x3f
-	{ "LD B, B", NULL},                      // 0x40
-	{ "LD B, C", NULL},                      // 0x41
-	{ "LD B, D", NULL},                      // 0x42
-	{ "LD B, E", NULL},                      // 0x43
-	{ "LD B, H", NULL},                      // 0x44
-	{ "LD B, L", NULL},                      // 0x45
-	{ "LD B, (HL)", NULL},                   // 0x46
-	{ "LD B, A", NULL},                      // 0x47
-	{ "LD C, B", NULL},                      // 0x48
-	{ "LD C, C", NULL},                      // 0x49
-	{ "LD C, D", NULL},                      // 0x4a
-	{ "LD C, E", NULL},                      // 0x4b
-	{ "LD C, H", NULL},                      // 0x4c
-	{ "LD C, L", NULL},                      // 0x4d
-	{ "LD C, (HL)", NULL},                   // 0x4e
+	{ "LD B, B", load8bit, &registers.b, &registers.b},                      // 0x40
+	{ "LD B, C", load8bit, &registers.b, &registers.c},                      // 0x41
+	{ "LD B, D", load8bit, &registers.b, &registers.d},                      // 0x42
+	{ "LD B, E", load8bit, &registers.b, &registers.e},                      // 0x43
+	{ "LD B, H", load8bit, &registers.b, &registers.h},                      // 0x44
+	{ "LD B, L", load8bit, &registers.b, &registers.l},                      // 0x45
+	{ "LD B, (HL)", load8bit_from_mem, &registers.b, &registers.hl},                   // 0x46
+	{ "LD B, A", load8bit, &registers.b, &registers.a},                      // 0x47
+	{ "LD C, B", load8bit, &registers.c, &registers.b},                      // 0x48
+	{ "LD C, C", load8bit, &registers.c, &registers.c},                      // 0x49
+	{ "LD C, D", load8bit, &registers.c, &registers.d},                      // 0x4a
+	{ "LD C, E", load8bit, &registers.c, &registers.e},                      // 0x4b
+	{ "LD C, H", load8bit, &registers.c, &registers.h},                      // 0x4c
+	{ "LD C, L", load8bit, &registers.c, &registers.l},                      // 0x4d
+	{ "LD C, (HL)", load8bit_from_mem, &registers.c, &registers.hl},                   // 0x4e
 	{ "LD C, A", load8bit, &registers.c, &registers.a},                      // 0x4f
-	{ "LD D, B", NULL},                      // 0x50
-	{ "LD D, C", NULL},                      // 0x51
-	{ "LD D, D", NULL},                      // 0x52
-	{ "LD D, E", NULL},                      // 0x53
-	{ "LD D, H", NULL},                      // 0x54
-	{ "LD D, L", NULL},                      // 0x55
-	{ "LD D, (HL)", NULL},                   // 0x56
-	{ "LD D, A", NULL},                      // 0x57
-	{ "LD E, B", NULL},                      // 0x58
-	{ "LD E, C", NULL},                      // 0x59
-	{ "LD E, D", NULL},                      // 0x5a
-	{ "LD E, E", NULL},                      // 0x5b
-	{ "LD E, H", NULL},                      // 0x5c
-	{ "LD E, L", NULL},                      // 0x5d
-	{ "LD E, (HL)", NULL},                   // 0x5e
-	{ "LD E, A", NULL},                      // 0x5f
-	{ "LD H, B", NULL},                      // 0x60
-	{ "LD H, C", NULL},                      // 0x61
-	{ "LD H, D", NULL},                      // 0x62
-	{ "LD H, E", NULL},                      // 0x63
-	{ "LD H, H", NULL},                      // 0x64
-	{ "LD H, L", NULL},                      // 0x65
-	{ "LD H, (HL)", NULL},                   // 0x66
-	{ "LD H, A", NULL},                      // 0x67
-	{ "LD L, B", NULL},                      // 0x68
-	{ "LD L, C", NULL},                      // 0x69
-	{ "LD L, D", NULL},                      // 0x6a
-	{ "LD L, E", NULL},                      // 0x6b
-	{ "LD L, H", NULL},                      // 0x6c
-	{ "LD L, L", NULL},                      // 0x6d
-	{ "LD L, (HL)", NULL},                   // 0x6e
-	{ "LD L, A", NULL},                      // 0x6f
-	{ "LD (HL), B", NULL},                   // 0x70
-	{ "LD (HL), C", NULL},                   // 0x71
-	{ "LD (HL), D", NULL},                   // 0x72
-	{ "LD (HL), E", NULL},                   // 0x73
-	{ "LD (HL), H", NULL},                   // 0x74
-	{ "LD (HL), L", NULL},                   // 0x75
+	{ "LD D, B", load8bit, &registers.d, &registers.b},                      // 0x50
+	{ "LD D, C", load8bit, &registers.d, &registers.c},                      // 0x51
+	{ "LD D, D", load8bit, &registers.d, &registers.d},                      // 0x52
+	{ "LD D, E", load8bit, &registers.d, &registers.e},                      // 0x53
+	{ "LD D, H", load8bit, &registers.d, &registers.h},                      // 0x54
+	{ "LD D, L", load8bit, &registers.d, &registers.l},                      // 0x55
+	{ "LD D, (HL)", load8bit_from_mem, &registers.d, &registers.hl},                   // 0x56
+	{ "LD D, A", load8bit, &registers.d, &registers.a},                      // 0x57
+	{ "LD E, B", load8bit, &registers.e, &registers.b},                      // 0x58
+	{ "LD E, C", load8bit, &registers.e, &registers.c},                      // 0x59
+	{ "LD E, D", load8bit, &registers.e, &registers.d},                      // 0x5a
+	{ "LD E, E", load8bit, &registers.e, &registers.e},                      // 0x5b
+	{ "LD E, H", load8bit, &registers.e, &registers.h},                      // 0x5c
+	{ "LD E, L", load8bit, &registers.e, &registers.l},                      // 0x5d
+	{ "LD E, (HL)", load8bit_from_mem, &registers.e, &registers.hl},                   // 0x5e
+	{ "LD E, A", load8bit, &registers.e, &registers.a},                      // 0x5f
+	{ "LD H, B", load8bit, &registers.h, &registers.b},                      // 0x60
+	{ "LD H, C", load8bit, &registers.h, &registers.c},                      // 0x61
+	{ "LD H, D", load8bit, &registers.h, &registers.d},                      // 0x62
+	{ "LD H, E", load8bit, &registers.h, &registers.e},                      // 0x63
+	{ "LD H, H", load8bit, &registers.h, &registers.h},                      // 0x64
+	{ "LD H, L", load8bit, &registers.h, &registers.l},                      // 0x65
+	{ "LD H, (HL)", load8bit_from_mem, &registers.h, &registers.hl},                   // 0x66
+	{ "LD H, A", load8bit, &registers.h, &registers.a},                      // 0x67
+	{ "LD L, B", load8bit, &registers.l, &registers.b},                      // 0x68
+	{ "LD L, C", load8bit, &registers.l, &registers.c},                      // 0x69
+	{ "LD L, D", load8bit, &registers.l, &registers.d},                      // 0x6a
+	{ "LD L, E", load8bit, &registers.l, &registers.e},                      // 0x6b
+	{ "LD L, H", load8bit, &registers.l, &registers.h},                      // 0x6c
+	{ "LD L, L", load8bit, &registers.l, &registers.l},                      // 0x6d
+	{ "LD L, (HL)", load8bit_from_mem, &registers.l, &registers.hl},                   // 0x6e
+	{ "LD L, A", load8bit, &registers.l, &registers.a},                      // 0x6f
+	{ "LD (HL), B", load8bit_to_mem, &registers.hl, &registers.b},                   // 0x70
+	{ "LD (HL), C", load8bit_to_mem, &registers.hl, &registers.c},                   // 0x71
+	{ "LD (HL), D", load8bit_to_mem, &registers.hl, &registers.d},                   // 0x72
+	{ "LD (HL), E", load8bit_to_mem, &registers.hl, &registers.e},                   // 0x73
+	{ "LD (HL), H", load8bit_to_mem, &registers.hl, &registers.h},                   // 0x74
+	{ "LD (HL), L", load8bit_to_mem, &registers.hl, &registers.l},                   // 0x75
 	{ "HALT", NULL},                         // 0x76
 	{ "LD (HL), A", load8bit_to_mem, &registers.hl, &registers.a },                   // 0x77
-	{ "LD A, B", NULL},                      // 0x78
-	{ "LD A, C", NULL},                      // 0x79
-	{ "LD A, D", NULL},                      // 0x7a
-	{ "LD A, E", NULL},                      // 0x7b
-	{ "LD A, H", NULL},                      // 0x7c
-	{ "LD A, L", NULL},                      // 0x7d
-	{ "LD A, (HL)", NULL},                   // 0x7e
-	{ "LD A, A", NULL},                      // 0x7f
-	{ "ADD A, B", NULL},                     // 0x80
-	{ "ADD A, C", NULL},                     // 0x81
-	{ "ADD A, D", NULL},                     // 0x82
-	{ "ADD A, E", NULL},                     // 0x83
-	{ "ADD A, H", NULL},                     // 0x84
-	{ "ADD A, L", NULL},                     // 0x85
-	{ "ADD A, (HL)", NULL},                  // 0x86
-	{ "ADD A", NULL},                        // 0x87
-	{ "ADC B", NULL},                        // 0x88
-	{ "ADC C", NULL},                        // 0x89
-	{ "ADC D", NULL},                        // 0x8a
-	{ "ADC E", NULL},                        // 0x8b
-	{ "ADC H", NULL},                        // 0x8c
-	{ "ADC L", NULL},                        // 0x8d
-	{ "ADC (HL)", NULL},                     // 0x8e
-	{ "ADC A", NULL},                        // 0x8f
+	{ "LD A, B", load8bit, &registers.a, &registers.b},                      // 0x78
+	{ "LD A, C", load8bit, &registers.a, &registers.c},                      // 0x79
+	{ "LD A, D", load8bit, &registers.a, &registers.d},                      // 0x7a
+	{ "LD A, E", load8bit, &registers.a, &registers.e},                      // 0x7b
+	{ "LD A, H", load8bit, &registers.a, &registers.h},                      // 0x7c
+	{ "LD A, L", load8bit, &registers.a, &registers.l},                      // 0x7d
+	{ "LD A, (HL)", load8bit_from_mem, &registers.a, &registers.hl},                   // 0x7e
+	{ "LD A, A", load8bit, &registers.a, &registers.a},                      // 0x7f
+    { "ADD A, B", add, &registers.b},                     // 0x80
+	{ "ADD A, C", add, &registers.c},                     // 0x81
+	{ "ADD A, D", add, &registers.d},                     // 0x82
+	{ "ADD A, E", add, &registers.e},                     // 0x83
+	{ "ADD A, H", add, &registers.h},                     // 0x84
+	{ "ADD A, L", add, &registers.l},                     // 0x85
+	{ "ADD A, (HL)", add_from_mem, &registers.hl},                  // 0x86
+	{ "ADD A", add, &registers.a},                        // 0x87
+	{ "ADC B", adc, &registers.b},                        // 0x88
+	{ "ADC C", adc, &registers.c},                        // 0x89
+	{ "ADC D", adc, &registers.d},                        // 0x8a
+	{ "ADC E", adc, &registers.e},                        // 0x8b
+	{ "ADC H", adc, &registers.h},                        // 0x8c
+	{ "ADC L", adc, &registers.l},                        // 0x8d
+	{ "ADC (HL)", adc_from_mem, &registers.hl},                     // 0x8e
+	{ "ADC A", adc, &registers.a},                        // 0x8f
 	{ "SUB B", NULL},                        // 0x90
 	{ "SUB C", NULL},                        // 0x91
 	{ "SUB D", NULL},                        // 0x92
@@ -589,7 +629,7 @@ const struct instruction instructions[256] = {
 	{ "RET NZ", NULL},                       // 0xc0
 	{ "POP BC", NULL},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
-	{ "JP 0x%04X", NULL},                    // 0xc3
+	{ "JP 0x%04X", jump_operand},                    // 0xc3
 	{ "CALL NZ, 0x%04X", NULL},              // 0xc4
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
@@ -648,7 +688,7 @@ const struct instruction instructions[256] = {
 	{ "EI", enable_interrupts},                           // 0xfb
 	{ "UNKNOWN", NULL},                      // 0xfc
 	{ "UNKNOWN", NULL},                      // 0xfd
-	{ "CP 0x%02X", NULL},                    // 0xfe
+	{ "CP 0x%02X", cp_operand},                    // 0xfe
 	{ "RST 0x38", NULL},                     // 0xff
 };
 
@@ -956,7 +996,6 @@ void execute() {
 void boot() {
 
     debug();
-
     while (1) {
         execute();
     }
