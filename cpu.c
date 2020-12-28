@@ -296,6 +296,19 @@ static void inc8bit(unsigned char* reg) {
     else clear_flag(FLAG_H);
 }
 
+static void dec8bit(unsigned char* reg) {
+
+	(*reg)--;
+
+	if (*reg==0) set_flag(FLAG_Z);
+	else clear_flag(FLAG_Z);
+
+	set_flag(FLAG_N);
+
+	if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
+	else clear_flag(FLAG_H);
+}	
+
 static void cp_operand() {
 
 	unsigned char s = read8bit_operand();
@@ -348,6 +361,16 @@ static void bit_op(void* n, unsigned char * reg) {
     set_flag(FLAG_H);
 }
 
+static void set_op(void* n, unsigned char* reg) {
+
+	unsigned char n_byte = (unsigned char) n;
+	
+	*reg |= (1 << (n_byte)); 
+}
+
+static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+    set_op(n,&memory[*reg_with_pointer]);
+}
 
 /*
  * =============
@@ -439,7 +462,7 @@ const struct instruction instructions[256] = {
 	{ "LD (BC), A", NULL},                   // 0x02
 	{ "INC BC", NULL},                       // 0x03
 	{ "INC B", NULL},                        // 0x04
-	{ "DEC B", NULL},                        // 0x05
+	{ "DEC B", dec8bit, &registers.b},                        // 0x05
 	{ "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
 	{ "RLCA", NULL},                         // 0x07
 	{ "LD (0x%04X), SP", NULL},              // 0x08
@@ -951,7 +974,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SET 7, E", NULL},      // 0xfb
 	{ "SET 7, H", NULL},      // 0xfc
 	{ "SET 7, L", NULL},      // 0xfd
-	{ "SET 7, (HL)", NULL}, // 0xfe
+	{ "SET 7, (HL)", set_op_from_mem, (void*) 7, &registers.hl}, // 0xfe
 	{ "SET 7, A", NULL},      // 0xff
 };
 
