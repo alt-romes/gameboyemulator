@@ -29,7 +29,7 @@
 
 
 
-/*---- Registers --------------------------------------------------*/
+/*---- Registers & Control ----------------------------------------*/
 
 
 /*
@@ -96,6 +96,8 @@ struct registers {
 struct registers registers = {{{0}}};
 
 static unsigned char interrupt_master_enable = 0;   /*Interrupt Master Enable Flag (enables or disables interrupts)*/
+
+static unsigned char halted = 0;    /* If halted = 1, CPU is idle and waiting for interrupt request  */
 
 
 
@@ -483,7 +485,7 @@ static void jump_add_operand() {
     registers.pc += read8bit_signed_operand(); 
 }
 
-// Sets program counter to operand
+// Sets program counter to operand on condition
 static void jump_condition_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
@@ -496,7 +498,7 @@ static void jump_condition_operand(void* flag, void* jump_cond) {
         registers.pc = operand;
 }
 
-// Adds operand to the current program counter
+// Adds operand to the current program counter on condition
 static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
@@ -513,17 +515,19 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
 /*---- Calls --------------------*/
 
+static void call(unsigned short address) {
+
+    memory[--registers.sp] = registers.pchi;
+    memory[--registers.sp] = registers.pclo;
+
+    registers.pc = address; 
+}
+
 static void call_operand() {
 
     unsigned short operand = read16bit_operand();
-
-    unsigned char pc_high = (registers.pc >> 8) & 0xFF;
-    unsigned char pc_low = registers.pc & 0xFF;
-
-    memory[--registers.sp] = pc_high;
-    memory[--registers.sp] = pc_low;
-
-    registers.pc = operand; 
+    
+    call(operand);
 }
 
 
@@ -557,11 +561,8 @@ static void enable_interrupts() {
 
 static void halt() {
 
-    // TODO
+    halted = 1;
 }
-
-// Handle instructions with prefix CB (implemented below instructions sets)
-static void execute_cb();
 
 
 
@@ -787,7 +788,7 @@ const struct instruction instructions[256] = {
 	{ "RET Z", NULL},                        // 0xc8
 	{ "RET", ret_op},                          // 0xc9
 	{ "JP Z, 0x%04X", NULL},                 // 0xca
-	{ "CB %02X", execute_cb},                      // 0xcb
+	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
 	{ "CALL Z, 0x%04X", NULL},               // 0xcc
 	{ "CALL 0x%04X", call_operand},                  // 0xcd
 	{ "ADC 0x%02X", NULL},                   // 0xce
@@ -1149,27 +1150,23 @@ const unsigned char instructions_cb_ticks[256] = {
 /*---- Main Logic and Execution -----------------------------------*/
 
 
-static void execute_cb() {
-    
+static int execute() {
+
     unsigned char opcode = memory[registers.pc++];
-    struct instruction instruction = instructions_cb[opcode];
-    if (instruction.execute) {
 
-        printf("CB %s -> 0x%x\n", instruction.disassembly, opcode);
-        instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
+    int time;   /* time is in cycles */
+    struct instruction instruction;
 
-    } else {
-
-        printf("CB Operation not defined: %s -> 0x%x\n", instruction.disassembly, opcode);
-        exit(1);
-
+    if (opcode == 0xcb) {       /* if op is CB prefix, execute next op from the CB instruction set */
+        opcode = memory[registers.pc++];
+        instruction = instructions_cb[opcode];
+        time = instructions_cb_ticks[opcode];
     }
-}
+    else {
+        instruction = instructions[opcode];
+        time = instructions_ticks[opcode];
+    }
 
-static void execute() {
-
-    unsigned char opcode = memory[registers.pc++];
-    struct instruction instruction = instructions[opcode];
     if (instruction.execute) {
 
         printf("%s -> 0x%x\n", instruction.disassembly, opcode);
@@ -1183,6 +1180,8 @@ static void execute() {
         exit(1);
 
     }
+
+    return time;
 }
 
 static void process_interrupts() {
@@ -1191,10 +1190,29 @@ static void process_interrupts() {
 
        unsigned char test_mask = 1; 
 
-       for (int i=0; i<7; i++) {
+       for (int i=0; i<5; i++) {
 
-           if (*interrupt_request_register & test_mask)
-               //TODO: handle request
+           /*   if there's an interrupt request, and that interrupt is "enabled" in the
+            * interrupt enable register (which is set by the game), then the request is acknowledged
+            * and processed.
+            */
+           if ( (*interrupt_request_register & test_mask) & *interrupt_enable_register ) {
+
+               disable_interrupts();
+
+               /*   Acknowledge the request:
+                clear the interrupt request bit that triggered the request */
+               *interrupt_request_register &= ~test_mask;
+
+               /*   Call the interruption handler
+                * (Interruption handlers are in addresses 0x40 to 0x60) */
+               unsigned short address = 0x40 + 0x8*i;
+               call(address);
+
+               /* The interruption handler will return and re-enable interrupts */
+
+               break;
+           }
 
            test_mask <<= 1;
 
@@ -1204,11 +1222,19 @@ static void process_interrupts() {
 }
 
 
+int cpu() {
 
-void cpu() {
+    int cycles = 0;
 
-    execute();
+    if (!halted) 
+         cycles = execute();
+    else
+        if (!interrupt_master_enable)   /* special case, if interrupts aren't enabled, halt is only enabled for one execute */
+            halted = 0;             
+
     process_interrupts();
+
+    return cycles;
 }
 
 void boot() {

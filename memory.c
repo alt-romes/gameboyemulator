@@ -42,6 +42,7 @@ union address_space address_space;
 unsigned char* memory = address_space.memory;
 unsigned char* ioports = address_space.ioports;
 unsigned char* interrupt_request_register = address_space.interrupt_request_register;
+unsigned char* interrupt_enable_register = address_space.interrupt_enable_register;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];

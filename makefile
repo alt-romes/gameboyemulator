@@ -1,5 +1,5 @@
-emulator: main.c cpu.c memory.c ppu.c
-	gcc -Wall -o emulator main.c
+emulator: emulator.c cpu.c memory.c ppu.c
+	gcc -Wall -o emulator emulator.c
 
 clean:
 	rm emulator
