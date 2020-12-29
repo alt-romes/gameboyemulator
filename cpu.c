@@ -28,6 +28,10 @@
 
 
 
+
+/*---- Registers --------------------------------------------------*/
+
+
 /*
  *  The Gameboy's CPU has 8 registers with size 8bits each
  *  They can be combined to form 16bit registers 
@@ -89,14 +93,14 @@ struct registers {
     };
 };
 
-// Registers are global
-struct registers registers = {{{0}}};
-int interrupts = 0;
+struct registers registers;// = {{{0}}};
 
 
-/*
- *  Flags operations
- */
+
+
+
+/*---- Flags ------------------------------------------------------*/
+
 
 #define FLAG_Z ((unsigned char) 128) // 1000 0000
 #define FLAG_N ((unsigned char) 64) // 0100 0000
@@ -106,26 +110,21 @@ int interrupts = 0;
 static void set_flag(unsigned char flag) {
 
     registers.f |= flag; 
-
 }
 
 static void clear_flag(unsigned char flag) {
 
     registers.f &= ~flag;
-
 }
 
 
 
-/*
- *  CPU Operations
- */
 
-/*
- * =============
- *  CPU Utils 
- * =============
- */
+
+/*---- CPU Operations ---------------------------------------------*/
+
+
+/*---- CPU Utils ----------------*/
 
 static unsigned char read8bit_operand() {
     printf("8-bit read: %d\n", memory[registers.pc]);
@@ -147,7 +146,6 @@ static unsigned short read16bit_operand() {
 
     printf("16-bit read: %d\n", operand);
     return operand;
-
 }
 
 static void debug() {
@@ -174,13 +172,11 @@ static void debug() {
 }
 
 
-/*
- * =============
- *  8-Bit Loads
- * =============
- */
+
+/*---- 8-Bit Loads --------------*/
 
 static void load8bit(unsigned char * destination, unsigned char * source) { 
+
     *destination = *source;
 }
 
@@ -192,15 +188,18 @@ static void load8bit_operand(unsigned char * destination, void* _unused) {
 }
 
 static void load8bit_to_mem(unsigned short * reg_with_pointer, unsigned char * source) { 
+
     load8bit(&memory[*reg_with_pointer], source);
 }
 
 static void load8bit_to_mem_operand(unsigned char * source) { 
+
     unsigned short address = read16bit_operand();
     load8bit(&memory[address], source);
 }
 
 static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_with_pointer) {
+
     load8bit(destination, &memory[*reg_with_pointer]);
 }
 
@@ -209,7 +208,6 @@ static void load8bit_from_io_mem_operand(unsigned char* destination) {
     unsigned short address = 0xFF00 + read8bit_operand();
 
     load8bit_from_mem(destination, &address);
-
 }
 
 static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) { 
@@ -242,13 +240,11 @@ static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
 }
 
 
-/*
- * ==============
- *  16-Bit Loads
- * ==============
- */
+
+/*---- 16-Bit Loads -------------*/
 
 static void load16bit(unsigned short * destination, unsigned short *source) { 
+    
     *destination = *source;
 }
 
@@ -263,21 +259,17 @@ static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
     
     memory[--registers.sp] = *hi_reg;
     memory[--registers.sp] = *lo_reg;
-
 }
 
 static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
     *lo_reg = memory[registers.sp++];
     *hi_reg = memory[registers.sp++];
-
 }
 
-/*
- * ===========
- *  8-Bit ALU
- * ===========
- */
+
+
+/*---- 8-Bit ALU ----------------*/
 
 static void add8bit(unsigned char* s) {
 
@@ -298,18 +290,22 @@ static void add8bit(unsigned char* s) {
     // carry flag
     if (registers.a < *s) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
-
 }
 
-static void add8bit_from_mem(unsigned char* reg_with_pointer, void* _unused) { add8bit(&memory[*reg_with_pointer]); }
+static void add8bit_from_mem(unsigned char* reg_with_pointer, void* _unused) {
+
+    add8bit(&memory[*reg_with_pointer]); 
+}
 
 static void adc (unsigned char* regs) {
+
 	unsigned char value = *regs;
 	if(registers.f & (1<<3)) value++;
 	add8bit(&value);
 }
 
 static void adc_from_mem(unsigned char* reg_with_pointer) {
+
     adc(&memory[*reg_with_pointer]);
 }
 
@@ -325,10 +321,10 @@ static void xor_reg(unsigned char* reg) {
     clear_flag(FLAG_N);
     clear_flag(FLAG_H);
     clear_flag(FLAG_CY);
-
 }
 
 static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
+
     xor_reg(&memory[*reg_with_pointer]);
 }
 
@@ -343,7 +339,6 @@ static void inc8bit(unsigned char* reg) {
 
     if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
-
 }
 
 static void dec8bit(unsigned char* reg) {
@@ -389,13 +384,10 @@ static void cp_operand() {
     cp_op(&s);
 }
 
-/*
- * ===================
- *  16-Bit Arithmetic
- * ===================
- */
 
-// TODO: probably all ALU 16 bit is setting the flags wrong
+
+/*---- 16-Bit Arithmetic --------*/
+// TODO: probably all ALU 16 bit operations are setting the flags wrong
 
 static void add16bit(unsigned short* source) {
 	
@@ -417,7 +409,6 @@ static void add16bit(unsigned short* source) {
 static void inc16bit(unsigned short* reg) {
 
     (*reg)++;
-
 }
 
 static void dec16bit(unsigned short* reg) {
@@ -426,11 +417,8 @@ static void dec16bit(unsigned short* reg) {
 }
 
 
-/*
- * ==================
- *  Rotates & Shifts
- * ==================
- */
+
+/*---- Rotates & Shifts ---------*/
 
 static void rl_op(unsigned char* reg) {
 
@@ -450,7 +438,6 @@ static void rl_op(unsigned char* reg) {
     
     clear_flag(FLAG_N);
     clear_flag(FLAG_H);
-
 }
 
 static void rla_op() {
@@ -460,11 +447,7 @@ static void rla_op() {
 }
 
 
-/*
- * =============
- *  Bit Opcodes 
- * =============
- */
+/*---- Bit Opcodes --------------*/
 
 static void bit_op(void* n, unsigned char * reg) {
 
@@ -485,21 +468,21 @@ static void set_op(void* n, unsigned char* reg) {
 }
 
 static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+
     set_op(n,&memory[*reg_with_pointer]);
 }
 
-/*
- * =============
- *  Jumps
- * =============
- */
 
+
+/*---- Jumps --------------------*/
 
 static void jump_operand(void* unused , void* unused2) {
+
 	registers.pc = read16bit_operand();
 }
 
 static void jump_add_operand() {
+
     registers.pc += read8bit_signed_operand(); 
 }
 
@@ -514,7 +497,6 @@ static void jump_condition_operand(void* flag, void* jump_cond) {
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
         registers.pc = operand;
-
 }
 
 // Adds operand to the current program counter
@@ -528,14 +510,11 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
         registers.pc += operand; 
-
 }
 
-/*
- * =============
- *  Calls 
- * =============
- */
+
+
+/*---- Calls --------------------*/
 
 static void call_operand() {
 
@@ -548,36 +527,41 @@ static void call_operand() {
     memory[--registers.sp] = pc_low;
 
     registers.pc = operand; 
-    
 }
 
-/*
- * =============
- *  Returns
- * =============
- */
+
+
+/*---- Returns ------------------*/
 
 static void ret_op() {
+
     registers.pclo = memory[registers.sp++];
     registers.pchi = memory[registers.sp++];
 }
 
-/*
- * ===============
- *  Miscellaneous 
- * ===============
- */
+
+
+/*---- Miscellaneous ------------*/
 
 static void nop () {
+
     // do nothing
 }
 
 static void enable_interrupts() {
-    interrupts = 1;
+
+    // TODO
 }
 
-// Handle instructions with prefix CB
+// Handle instructions with prefix CB (implemented below instructions sets)
 static void execute_cb();
+
+
+
+
+
+/*---- Instructions -----------------------------------------------*/
+
 
 /*
  *  Instruction set with disassembly, callback and parameters
@@ -1151,6 +1135,13 @@ const unsigned char instructions_cb_ticks[256] = {
 	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8  // 0xf_
 };
 
+
+
+
+
+/*---- Main Logic and Execution -----------------------------------*/
+
+
 static void execute_cb() {
     
     unsigned char opcode = memory[registers.pc++];
@@ -1166,9 +1157,7 @@ static void execute_cb() {
         exit(1);
 
     }
-
 }
-
 
 static void execute() {
 
@@ -1187,21 +1176,24 @@ static void execute() {
         exit(1);
 
     }
+}
+
+static void process_interrupts() {
+
+    
 
 }
+
 
 
 void cpu() {
+
     execute();
+    process_interrupts();
 }
-
-
-
-
 
 void boot() {
 
 
     // TODO: set boot rom, set flags
-
 }
