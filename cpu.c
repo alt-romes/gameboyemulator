@@ -93,7 +93,7 @@ struct registers {
     };
 };
 
-struct registers registers;// = {{{0}}};
+struct registers registers = {{{0}}};
 
 static unsigned char interrupt_master_enable = 0;   /*Interrupt Master Enable Flag (enables or disables interrupts)*/
 
@@ -318,9 +318,7 @@ static void xor_reg(unsigned char* reg) {
     else
         clear_flag(FLAG_Z);
 
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
-    clear_flag(FLAG_CY);
+    clear_flag(FLAG_N | FLAG_H | FLAG_CY);
 }
 
 static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
@@ -358,8 +356,6 @@ static void cp_op(unsigned char* reg) {
 
     unsigned char s = *reg;
 	unsigned char cp_a = registers.a - s;
-
-    printf("DO: %d - %d\nRESULT OF CP IS = %d\n", registers.a, s, cp_a);
 
     // zero flag 
     if (cp_a == 0) set_flag(FLAG_Z);
@@ -1195,7 +1191,14 @@ static void process_interrupts() {
 
        unsigned char test_mask = 1; 
 
+       for (int i=0; i<7; i++) {
 
+           if (*interrupt_request_register & test_mask)
+               //TODO: handle request
+
+           test_mask <<= 1;
+
+       }
 
     }
 }

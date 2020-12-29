@@ -1,3 +1,8 @@
+/*
+ * Gameboy Emulator: Pixel Processing Unit
+ */
+
+
 void printvram() {
 
     unsigned short vram_start = 0x00a7;
@@ -16,8 +21,8 @@ void printvram() {
 void print_tiles() {
 
 
-    unsigned short vram_start = 0x9910;
-    unsigned short vram_end = 0x992f;
+    unsigned short vram_start = 0x8000;
+    unsigned short vram_end = 0x9FFF;
 
     printvram();
 

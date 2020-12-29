@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "memory.c"
 #include "cpu.c"
-#include "gpu.c"
+#include "ppu.c"
 
 
 void emulate() {
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
     emulate();
 
-    /* print_tiles(); */
+    print_tiles();
 
     return 0;
 }

@@ -1,4 +1,4 @@
-emulator: main.c cpu.c memory.c gpu.c
+emulator: main.c cpu.c memory.c ppu.c
 	gcc -Wall -o emulator main.c
 
 clean:
