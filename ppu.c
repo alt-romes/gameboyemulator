@@ -21,8 +21,8 @@ void printvram() {
 void print_tiles() {
 
 
-    unsigned short vram_start = 0x8000;
-    unsigned short vram_end = 0x9FFF;
+    unsigned short vram_start = 0x8800;
+    unsigned short vram_end = 0x97FF;
 
     printvram();
 

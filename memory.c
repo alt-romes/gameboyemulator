@@ -25,13 +25,45 @@ union address_space {
         union {
             struct {
                 unsigned char padding[0xF];
-                unsigned char interrupt_request_register[1];
-                unsigned char padding_after[0x70];
+                unsigned char interrupt_request_register[1]; // Interrupt request register ($FF0F)
+                unsigned char padding_[0x30];
+                unsigned char lcdc[1]; // LCD Control ($FF40)
+                unsigned char lcdc_stat[1]; // LCD Control Status ($FF41)
+                unsigned char lcd_scy[1]; // LCD Scroll Y ($FF42)
+                unsigned char lcd_scx[1]; /* LCD Scroll X ($FF43)
+                                           *
+                                           * (Scroll Y and X are used to determine the position of background (256x256)
+                                           * to be displayed at the upper/left LCD display position)
+                                           *
+                                           * (Used for scrolling background map)
+                                           */
+                unsigned char lcd_ly[1]; /* LCDC Y-Coordinate ($FF44)
+                                          *
+                                          * (Indicates vertical line of the LCD Driver to where present data is being transferred)
+                                          *
+                                          * Can take any value between 0-153: Values from 144-153 indicate the V-Blank Period
+                                          */
+                unsigned char lcd_lyc[1]; /* LCD LY Compare ($FF45)
+                                           * 
+                                           * Gameboy permanently compares LYC and LY. When both are identical, 
+                                           * the coincident bit in the STAT becomes set,
+                                           * and (if enabled) a STAT interrupt is requested
+                                           */
+                unsigned char padding__[1];
+                unsigned char bgp[1]; /* BG Pallete Data ($FF47)
+                                       * 
+                                       * Assigns gray shades to the color number of the BG
+                                       *
+                                       * Bit 7-6 - Shade color for Color Number 3
+                                       * Bit 5-4 - Shade color for Color Number 2
+                                       * etc...
+                                       */
+                unsigned char padding___[0x38];
             };
-            unsigned char ioports[0x80]; // IO Ports
+            unsigned char ioports[0x80]; // IO Ports ($FF00)
         };
         unsigned char hram[0x7F]; // High RAM
-        unsigned char interrupt_enable_register[1];
+        unsigned char interrupt_enable_register[1]; // Interrupt enable register
     };
     unsigned char memory[0x10000]; // 64K address space
 };
@@ -43,6 +75,8 @@ unsigned char* memory = address_space.memory;
 unsigned char* ioports = address_space.ioports;
 unsigned char* interrupt_request_register = address_space.interrupt_request_register;
 unsigned char* interrupt_enable_register = address_space.interrupt_enable_register;
+unsigned char* lcdc = address_space.lcdc;
+unsigned char* lcdc_stat = address_space.lcdc_stat;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
