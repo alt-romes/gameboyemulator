@@ -95,6 +95,8 @@ struct registers {
 
 struct registers registers;// = {{{0}}};
 
+static unsigned char interrupt_master_enable = 0;   /*Interrupt Master Enable Flag (enables or disables interrupts)*/
+
 
 
 
@@ -205,9 +207,9 @@ static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_wi
 
 static void load8bit_from_io_mem_operand(unsigned char* destination) {
 
-    unsigned short address = 0xFF00 + read8bit_operand();
+    unsigned short operand = read8bit_operand();
 
-    load8bit_from_mem(destination, &address);
+    load8bit(destination, &ioports[operand]);
 }
 
 static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) { 
@@ -220,9 +222,7 @@ static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) {
 
 static void load8bit_to_io_mem(unsigned char* offsetreg, unsigned char* source) {
     
-    unsigned short address = 0xFF00 + *offsetreg;
-
-    load8bit_to_mem(&address, source);
+    load8bit(&ioports[*offsetreg], source);
 }
 
 static void load8bit_to_io_mem_operand(unsigned char* source) {
@@ -449,6 +449,7 @@ static void rla_op() {
 
 /*---- Bit Opcodes --------------*/
 
+// Tests bit of a register
 static void bit_op(void* n, unsigned char * reg) {
 
     unsigned char n_byte = (unsigned char) n;
@@ -548,7 +549,17 @@ static void nop () {
     // do nothing
 }
 
+static void disable_interrupts() {
+
+    interrupt_master_enable = 0;
+}
+
 static void enable_interrupts() {
+
+    interrupt_master_enable = 1;
+}
+
+static void halt() {
 
     // TODO
 }
@@ -695,7 +706,7 @@ const struct instruction instructions[256] = {
 	{ "LD (HL), E", load8bit_to_mem, &registers.hl, &registers.e},                   // 0x73
 	{ "LD (HL), H", load8bit_to_mem, &registers.hl, &registers.h},                   // 0x74
 	{ "LD (HL), L", load8bit_to_mem, &registers.hl, &registers.l},                   // 0x75
-	{ "HALT", NULL},                         // 0x76
+	{ "HALT", halt},                         // 0x76
 	{ "LD (HL), A", load8bit_to_mem, &registers.hl, &registers.a },                   // 0x77
 	{ "LD A, B", load8bit, &registers.a, &registers.b},                      // 0x78
 	{ "LD A, C", load8bit, &registers.a, &registers.c},                      // 0x79
@@ -820,7 +831,7 @@ const struct instruction instructions[256] = {
 	{ "LD A, (0xFF00 + 0x%02X)", load8bit_from_io_mem_operand, &registers.a},      // 0xf0
 	{ "POP AF", NULL},                       // 0xf1
 	{ "LD A, (0xFF00 + C)", NULL},           // 0xf2
-	{ "DI", NULL},                           // 0xf3
+	{ "DI", disable_interrupts},                           // 0xf3
 	{ "UNKNOWN", NULL},                      // 0xf4
 	{ "PUSH AF", push_op, &registers.a, &registers.f},                      // 0xf5
 	{ "OR 0x%02X", NULL},                    // 0xf6
@@ -1180,8 +1191,13 @@ static void execute() {
 
 static void process_interrupts() {
 
-    
+    if ( interrupt_master_enable ) {
 
+       unsigned char test_mask = 1; 
+
+
+
+    }
 }
 
 
