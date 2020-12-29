@@ -1147,41 +1147,18 @@ const unsigned char instructions_cb_ticks[256] = {
 
 
 
-/*---- Main Logic and Execution -----------------------------------*/
+/*---- Interrupts -------------------------------------------------*/
 
 
-static int execute() {
+#define VBLANK_INTERRUPT ((unsigned char) 1) // 0000 0001
+#define LCDSTAT_INTERRUPT ((unsigned char) 2) // 0000 0010
+#define TIMER_INTERRUPT ((unsigned char) 4) // 0000 0100
+#define SERIAL_INTERRUPT ((unsigned char) 8) // 0000 1000
+#define JOYPAD_INTERRUPT ((unsigned char) 16) // 0001 0000
 
-    unsigned char opcode = memory[registers.pc++];
-
-    int time;   /* time is in cycles */
-    struct instruction instruction;
-
-    if (opcode == 0xcb) {       /* if op is CB prefix, execute next op from the CB instruction set */
-        opcode = memory[registers.pc++];
-        instruction = instructions_cb[opcode];
-        time = instructions_cb_ticks[opcode];
-    }
-    else {
-        instruction = instructions[opcode];
-        time = instructions_ticks[opcode];
-    }
-
-    if (instruction.execute) {
-
-        printf("%s -> 0x%x\n", instruction.disassembly, opcode);
-        instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
-
-        debug();
-
-    } else {
-
-        printf("Operation not defined: %s -> 0x%x\n", instruction.disassembly, opcode);
-        exit(1);
-
-    }
-
-    return time;
+void request_interrupt(unsigned char interrupt_flag) {
+   
+    *interrupt_request_register |= interrupt_flag;
 }
 
 static void process_interrupts() {
@@ -1219,6 +1196,47 @@ static void process_interrupts() {
        }
 
     }
+}
+
+
+
+
+
+/*---- Main Logic and Execution -----------------------------------*/
+
+
+static int execute() {
+
+    unsigned char opcode = memory[registers.pc++];
+
+    int time;   /* time is in cycles */
+    struct instruction instruction;
+
+    if (opcode == 0xcb) {       /* if op is CB prefix, execute next op from the CB instruction set */
+        opcode = memory[registers.pc++];
+        instruction = instructions_cb[opcode];
+        time = instructions_cb_ticks[opcode];
+    }
+    else {
+        instruction = instructions[opcode];
+        time = instructions_ticks[opcode];
+    }
+
+    if (instruction.execute) {
+
+        printf("%s -> 0x%x\n", instruction.disassembly, opcode);
+        instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
+
+        debug();
+
+    } else {
+
+        printf("Operation not defined: %s -> 0x%x\n", instruction.disassembly, opcode);
+        exit(1);
+
+    }
+
+    return time;
 }
 
 

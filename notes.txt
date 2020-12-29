@@ -51,4 +51,29 @@ Instruction Number:
 4253: Loops back if A != 144, and A=0 rn
 (Epiphany#1)
     CPU will loop until the memory position in the IO memory space is 144. That memory space needs to be filled by something that appears to be called "screen frame".
+    
+    - Added Interrupts, Clock simulation and LCD control.
+
+4683: LD A, (0xFF44). A = 3 !! Something is definitely happening...
+
+24200: CP 144 : A is FINALLY 144, 
+24201: JUMP IF NOT ZERO: BUT THE ZERO FLAG IS SET - IT DOESN'T JUMP
+24202: DEC C. The program counter advances and we finally keep working our way through the boot
+24203: JR NZ: Jump if not zero back to the LD A, ($ff44) instruction before the CP.
+
+24207: DEC C: Keep decrementing C until it's Zero. C=6
+
+24232: DEC C: C=1
+24233: JR NZ: C was 0, so it doesn't jump because the ZERO Flag is set.
+24234: DEC E: E=1
+24235: JR NZ: It doesn't Jump!! Move program counter to 112
+
+24240: CP 98: A=1, Zero flag is not set.
+24241: JR Z: it doesn't jump. move program counter to 122
+
+24243: CP 100: A=1. Zero flag is not set.
+24244: JR NZ: Jumps ahead from program counter 126 to 134
+
+24246: SUB B:
+(Error) Error for the first time in so long... the operation isn't defined! Means we got over the LY ($ff44) problem!!
 

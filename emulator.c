@@ -19,7 +19,7 @@ int time = 0;   /* time is in cycles */
 
 
 int i=0; // debug i (counter for debugging)
-
+int max_i = 30000;
 
 /*
  *  Update is called 60 times per second
@@ -30,28 +30,39 @@ int i=0; // debug i (counter for debugging)
  */
 void update() {
     
-    int cycles_run = 0;
+    int cycles_this_frame = 0;
 
-    while (cycles_run < FRAME_MAX_CYCLES && i++ < 4263) {
+    while (cycles_this_frame < FRAME_MAX_CYCLES && i++ < max_i) {
 
         printf("Instruction Number: %d\n", i);
-        cycles_run += cpu();
 
-        // TODO: Receive inputs/do interrupts?
+        int cycles = cpu();
+
+        ppu(cycles); /* The Pixel Processing Unit receives the 
+                      * the amount of cycles run by the processor
+                      * in order to keep it in sync with the processor.
+                      */
+
+        // TODO: Receive inputs/request interrupts?
+
+
+        cycles_this_frame += cycles;
     }
 
     //TODO: Render
 
-    time += cycles_run;
+    time += cycles_this_frame;
 }
 
 
 void emulate() {
 
     debug();
-    while (registers.pc < 257 && i < 4263) {
+    while (registers.pc < 257 && i < max_i) {
 
         update();
+
+        debug();
 
         printf("current time: %d\n\n", time);
         sleep(1/60);    /* update runs 60 times per second */

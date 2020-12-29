@@ -9,6 +9,9 @@
  *  > Memory map
  *  http://bgb.bircd.org/pandocs.htm#memorymap
  *
+ *  > Memory map
+ *  http://gameboy.mongenel.com/dmg/asmmemmap.html
+ *
  */
 
 // Gameboy address space (RAM + VRAM?)
@@ -77,6 +80,9 @@ unsigned char* interrupt_request_register = address_space.interrupt_request_regi
 unsigned char* interrupt_enable_register = address_space.interrupt_enable_register;
 unsigned char* lcdc = address_space.lcdc;
 unsigned char* lcdc_stat = address_space.lcdc_stat;
+unsigned char* lcd_ly = address_space.lcd_ly;
+unsigned char* lcd_lyc = address_space.lcd_lyc;
+
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
