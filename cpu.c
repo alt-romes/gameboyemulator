@@ -6,12 +6,17 @@
  *  
  *  > Everything ~you wanted to know
  *  http://bgb.bircd.org/pandocs.htm
+ *  > Pandocs active version
+ *  https://gbdev.io/pandocs/
  *
  *  > Instruction Set + Registers
  *  https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
  *
  *  > More Opcodes
  *  http://gameboy.mongenel.com/dmg/opcodes.html
+ *
+ *  > Bootstrap ROM
+ *  https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
  *
  *  
  *  Notes:
@@ -238,7 +243,7 @@ static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
 
 
 /*
- * =============
+ * ==============
  *  16-Bit Loads
  * ==============
  */
@@ -572,7 +577,7 @@ static void enable_interrupts() {
 }
 
 // Handle instructions with prefix CB
-void execute_cb();
+static void execute_cb();
 
 /*
  *  Instruction set with disassembly, callback and parameters
@@ -846,6 +851,24 @@ const struct instruction instructions[256] = {
 	{ "RST 0x38", NULL},                     // 0xff
 };
 
+const unsigned char instructions_ticks[256] = {
+	2, 6, 4, 4, 2, 2, 4, 4, 10, 4, 4, 4, 2, 2, 4, 4, // 0x0_
+	2, 6, 4, 4, 2, 2, 4, 4,  4, 4, 4, 4, 2, 2, 4, 4, // 0x1_
+	0, 6, 4, 4, 2, 2, 4, 2,  0, 4, 4, 4, 2, 2, 4, 2, // 0x2_
+	4, 6, 4, 4, 6, 6, 6, 2,  0, 4, 4, 4, 2, 2, 4, 2, // 0x3_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x4_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x5_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x6_
+	4, 4, 4, 4, 4, 4, 2, 4,  2, 2, 2, 2, 2, 2, 4, 2, // 0x7_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x8_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x9_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0xa_
+	2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0xb_
+	0, 6, 0, 6, 0, 8, 4, 8,  0, 2, 0, 0, 0, 6, 4, 8, // 0xc_
+	0, 6, 0, 0, 0, 8, 4, 8,  0, 8, 0, 0, 0, 0, 4, 8, // 0xd_
+	6, 6, 4, 0, 0, 8, 4, 8,  8, 2, 8, 0, 0, 0, 4, 8, // 0xe_
+	6, 6, 4, 2, 0, 8, 4, 8,  6, 4, 8, 2, 0, 0, 4, 8  // 0xf_
+};
 
 /*
  * Instructions with prefix CB
@@ -1109,7 +1132,26 @@ const struct instruction instructions_cb[256] = {
 	{ "SET 7, A", NULL},      // 0xff
 };
 
-void execute_cb() {
+const unsigned char instructions_cb_ticks[256] = {
+	8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x0_
+	8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x1_
+	8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x2_
+	8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x3_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x4_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x5_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x6_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x7_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x8_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x9_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xa_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xb_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xc_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xd_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xe_
+	8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8  // 0xf_
+};
+
+static void execute_cb() {
     
     unsigned char opcode = memory[registers.pc++];
     struct instruction instruction = instructions_cb[opcode];
@@ -1128,7 +1170,7 @@ void execute_cb() {
 }
 
 
-void execute() {
+static void execute() {
 
     unsigned char opcode = memory[registers.pc++];
     struct instruction instruction = instructions[opcode];
@@ -1148,15 +1190,17 @@ void execute() {
 
 }
 
+
+void cpu() {
+    execute();
+}
+
+
+
+
+
 void boot() {
 
-    debug();
-
-    int i=0;
-    while (registers.pc < 257 && i++ < 4263) {
-        printf("Instruction Number: %d\n", i);
-        execute();
-    }
 
     // TODO: set boot rom, set flags
 
