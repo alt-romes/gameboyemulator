@@ -3,7 +3,7 @@
  *
  *
  *  Resources:
- *  
+ *
  *  > Everything ~you wanted to know
  *  http://bgb.bircd.org/pandocs.htm
  *  > Pandocs active version
@@ -18,7 +18,7 @@
  *  > Bootstrap ROM
  *  https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
  *
- *  
+ *
  *  Notes:
  *
  *  Load memory.c before loading this file (cpu.c)
@@ -34,13 +34,13 @@
 
 /*
  *  The Gameboy's CPU has 8 registers with size 8bits each
- *  They can be combined to form 16bit registers 
- * 
+ *  They can be combined to form 16bit registers
+ *
  *      16bit | hi | lo | name/function
  *      af    | a  | f  | accumulator & flags
- *      bc    | b  | c  |                    
- *      de    | d  | e  | 
- *      hl    | h  | l  | 
+ *      bc    | b  | c  |
+ *      de    | d  | e  |
+ *      hl    | h  | l  |
  *      sp    | -  | -  | stack pointer
  *      pc    | -  | -  | program counter
  *
@@ -113,7 +113,7 @@ static unsigned char halted = 0;    /* If halted = 1, CPU is idle and waiting fo
 
 static void set_flag(unsigned char flag) {
 
-    registers.f |= flag; 
+    registers.f |= flag;
 }
 
 static void clear_flag(unsigned char flag) {
@@ -166,7 +166,7 @@ static void debug() {
     printf("===============================\n");
     printf("register(SP): %d\n", registers.sp);
     printf("register(PC): %d\n", registers.pc);
-    
+
     printf("===============================\n");
     printf("register(AF): %d\n", registers.af);
     printf("register(BC): %d\n", registers.bc);
@@ -179,24 +179,24 @@ static void debug() {
 
 /*---- 8-Bit Loads --------------*/
 
-static void load8bit(unsigned char * destination, unsigned char * source) { 
+static void load8bit(unsigned char * destination, unsigned char * source) {
 
     *destination = *source;
 }
 
-static void load8bit_operand(unsigned char * destination, void* _unused) { 
+static void load8bit_operand(unsigned char * destination, void* _unused) {
 
     unsigned char operand = read8bit_operand();
 
     load8bit(destination, &operand);
 }
 
-static void load8bit_to_mem(unsigned short * reg_with_pointer, unsigned char * source) { 
+static void load8bit_to_mem(unsigned short * reg_with_pointer, unsigned char * source) {
 
     load8bit(&memory[*reg_with_pointer], source);
 }
 
-static void load8bit_to_mem_operand(unsigned char * source) { 
+static void load8bit_to_mem_operand(unsigned char * source) {
 
     unsigned short address = read16bit_operand();
     load8bit(&memory[address], source);
@@ -214,7 +214,7 @@ static void load8bit_from_io_mem_operand(unsigned char* destination) {
     load8bit(destination, &ioports[operand]);
 }
 
-static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) { 
+static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) {
 
     load8bit(&memory[*reg_with_pointer], &registers.a);
 
@@ -223,19 +223,19 @@ static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) {
 
 
 static void load8bit_to_io_mem(unsigned char* offsetreg, unsigned char* source) {
-    
+
     load8bit(&ioports[*offsetreg], source);
 }
 
 static void load8bit_to_io_mem_operand(unsigned char* source) {
-    
+
     unsigned char operand = read8bit_operand();
 
     load8bit_to_io_mem(&operand, source);
 }
 
 static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
-	
+
 	load8bit(&memory[*reg_with_pointer], &registers.a);
 
 	(*reg_with_pointer)++;
@@ -245,8 +245,8 @@ static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
 
 /*---- 16-Bit Loads -------------*/
 
-static void load16bit(unsigned short * destination, unsigned short *source) { 
-    
+static void load16bit(unsigned short * destination, unsigned short *source) {
+
     *destination = *source;
 }
 
@@ -258,7 +258,7 @@ static void load16bit_operand(unsigned short * destination) {
 }
 
 static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
-    
+
     memory[--registers.sp] = *hi_reg;
     memory[--registers.sp] = *lo_reg;
 }
@@ -275,9 +275,9 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
 static void add8bit(unsigned char* s) {
 
-    registers.a += *s; 
+    registers.a += *s;
 
-    // zero flag 
+    // zero flag
     if (registers.a == 0) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
 
@@ -294,10 +294,17 @@ static void add8bit(unsigned char* s) {
     else clear_flag(FLAG_CY);
 }
 
-static void add8bit_from_mem(unsigned char* reg_with_pointer, void* _unused) {
+static void add8bit_from_mem(unsigned char* reg_with_pointer) {
 
-    add8bit(&memory[*reg_with_pointer]); 
+    add8bit(&memory[*reg_with_pointer]);
 }
+
+static void sub(unsigned char* reg) {
+    unsigned char complement_to_2 = ~(*reg) + 1;
+    add8bit(&complement_to_2);
+
+}
+
 
 static void adc (unsigned char* regs) {
 
@@ -311,7 +318,7 @@ static void adc_from_mem(unsigned char* reg_with_pointer) {
     adc(&memory[*reg_with_pointer]);
 }
 
-static void xor_reg(unsigned char* reg) { 
+static void xor_reg(unsigned char* reg) {
 
     registers.a ^= *reg;
 
@@ -352,14 +359,14 @@ static void dec8bit(unsigned char* reg) {
 
 	if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
 	else clear_flag(FLAG_H);
-}	
+}
 
 static void cp_op(unsigned char* reg) {
 
     unsigned char s = *reg;
-	unsigned char cp_a = registers.a - s;
+	  unsigned char cp_a = registers.a - s;
 
-    // zero flag 
+    // zero flag
     if (cp_a == 0) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
 
@@ -388,7 +395,7 @@ static void cp_operand() {
 // TODO: probably all ALU 16 bit operations are setting the flags wrong
 
 static void add16bit(unsigned short* source) {
-	
+
 	unsigned short to_add = *source;
 	unsigned short add_bit = registers.hl + to_add;
 	registers.hl = add_bit;
@@ -433,7 +440,7 @@ static void rl_op(unsigned char* reg) {
 
     // if had carry, set it to the lowest bit
     if (hadcarry) *reg |= 0x01;
-    
+
     clear_flag(FLAG_N);
     clear_flag(FLAG_H);
 }
@@ -462,8 +469,8 @@ static void bit_op(void* n, unsigned char * reg) {
 static void set_op(void* n, unsigned char* reg) {
 
 	unsigned char n_byte = (unsigned char) n;
-	
-	*reg |= (1 << (n_byte)); 
+
+	*reg |= (1 << (n_byte));
 }
 
 static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
@@ -482,7 +489,7 @@ static void jump_operand(void* unused , void* unused2) {
 
 static void jump_add_operand() {
 
-    registers.pc += read8bit_signed_operand(); 
+    registers.pc += read8bit_signed_operand();
 }
 
 // Sets program counter to operand on condition
@@ -492,7 +499,7 @@ static void jump_condition_operand(void* flag, void* jump_cond) {
     unsigned char jump_condb = (unsigned char) jump_cond;
 
     unsigned short operand = read16bit_operand();
-    
+
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
         registers.pc = operand;
@@ -508,7 +515,7 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
     unsigned char flag_status = (flagb & registers.f);
     if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
-        registers.pc += operand; 
+        registers.pc += operand;
 }
 
 
@@ -520,13 +527,13 @@ static void call(unsigned short address) {
     memory[--registers.sp] = registers.pchi;
     memory[--registers.sp] = registers.pclo;
 
-    registers.pc = address; 
+    registers.pc = address;
 }
 
 static void call_operand() {
 
     unsigned short operand = read16bit_operand();
-    
+
     call(operand);
 }
 
@@ -729,14 +736,14 @@ const struct instruction instructions[256] = {
 	{ "ADC L", adc, &registers.l},                        // 0x8d
 	{ "ADC (HL)", adc_from_mem, &registers.hl},                     // 0x8e
 	{ "ADC A", adc, &registers.a},                        // 0x8f
-	{ "SUB B", NULL},                        // 0x90
-	{ "SUB C", NULL},                        // 0x91
-	{ "SUB D", NULL},                        // 0x92
-	{ "SUB E", NULL},                        // 0x93
-	{ "SUB H", NULL},                        // 0x94
-	{ "SUB L", NULL},                        // 0x95
+	{ "SUB B", sub, &registers.b},                        // 0x90
+	{ "SUB C", sub, &registers.c},                        // 0x91
+	{ "SUB D", sub, &registers.d},                        // 0x92
+	{ "SUB E", sub, &registers.e},                        // 0x93
+	{ "SUB H", sub, &registers.h},                        // 0x94
+	{ "SUB L", sub, &registers.l},                        // 0x95
 	{ "SUB (HL)", NULL},                     // 0x96
-	{ "SUB A", NULL},                        // 0x97
+	{ "SUB A", sub, &registers.a},                        // 0x97
 	{ "SBC B", NULL},                        // 0x98
 	{ "SBC C", NULL},                        // 0x99
 	{ "SBC D", NULL},                        // 0x9a
@@ -1157,7 +1164,7 @@ const unsigned char instructions_cb_ticks[256] = {
 #define JOYPAD_INTERRUPT ((unsigned char) 16) // 0001 0000
 
 void request_interrupt(unsigned char interrupt_flag) {
-   
+
     *interrupt_request_register |= interrupt_flag;
 }
 
@@ -1165,7 +1172,7 @@ static void process_interrupts() {
 
     if ( interrupt_master_enable ) {
 
-       unsigned char test_mask = 1; 
+       unsigned char test_mask = 1;
 
        for (int i=0; i<5; i++) {
 
@@ -1244,11 +1251,11 @@ int cpu() {
 
     int cycles = 0;
 
-    if (!halted) 
+    if (!halted)
          cycles = execute();
     else
         if (!interrupt_master_enable)   /* special case, if interrupts aren't enabled, halt is only enabled for one execute */
-            halted = 0;             
+            halted = 0;
 
     process_interrupts();
 
