@@ -133,16 +133,34 @@ static unsigned char scanlinesbuffer[160*144];
 
 static void render_frame() {
 
+    /*  Background Pallete Register
+          Bit 7-6 - Shade for Color Number 3
+          Bit 5-4 - Shade for Color Number 2
+          Bit 3-2 - Shade for Color Number 1
+          Bit 1-0 - Shade for Color Number 0
+
+        Possible shades of grey
+          0  White
+          1  Light gray
+          2  Dark gray
+          3  Black
+     */
+
+    unsigned char colors[4];
+    colors[3] = *lcd_bgp >> 6;
+    colors[2] = (*lcd_bgp >> 4) & 0x3;
+    colors[1] = (*lcd_bgp >> 2) & 0x3;
+    colors[0] = *lcd_bgp & 0x3;
+
     for (int pixel=0; pixel < sizeof (scanlinesbuffer); pixel++) {
 
         if (pixel % 160 == 0)
             printf("\n");
 
-        if (scanlinesbuffer[pixel] == 0) 
+        if (colors[scanlinesbuffer[pixel]] == 3) 
             printf(". ");
-        else {
-            printf("%d ", scanlinesbuffer[pixel]);
-        }
+        else 
+            printf("%d ", colors[scanlinesbuffer[pixel]]);
     }
     printf("\n"); 
 }
@@ -228,10 +246,8 @@ static void render_tiles() {
 
         unsigned char line_byte_in_tile = (yPos % 8) * 2;   // each tile has 8 vertical lines, each line uses 2 bytes
 
-        unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile];
-        unsigned char hi_color_bit = memory[tile_data_location+line_byte_in_tile+1];
-
-        /* printf("writing line: %d\n", *lcd_ly); */
+        unsigned char hi_color_bit = memory[tile_data_location+line_byte_in_tile];
+        unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile+1];
 
 
         // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
@@ -245,8 +261,6 @@ static void render_tiles() {
             pixel_color |= (hi_color_bit >> (7 - hpixel_in_tile)) & 1; // 7-pixel because pixel 0 is in bit 7
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
-
-            /* printf("writing position: %d\n", (*lcd_ly)*160 + pixels_drawn + hpixel_in_tile); */
 
             scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = pixel_color;
 

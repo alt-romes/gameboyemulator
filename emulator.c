@@ -24,7 +24,7 @@ int time = 0;   /* time is in cycles */
 
 
 int i=0; // debug i (counter for debugging)
-int max_i = 103000000;
+int max_i = 10300000;
 
 /*
  *  Update is called 60 times per second
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 
     boot();
 
-    /* load_cartridge("tetris-jp.gb"); */
+    load_cartridge("zelda.gb");
 
     emulate();
 

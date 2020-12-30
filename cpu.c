@@ -395,6 +395,10 @@ static void cp_operand() {
     cp_op(&s);
 }
 
+static void cp_mem(unsigned short* reg_w_pointer) {
+    cp_op(&memory[*reg_w_pointer]);
+}
+
 
 
 /*---- 16-Bit Arithmetic --------*/
@@ -789,7 +793,7 @@ const struct instruction instructions[256] = {
 	{ "CP E", cp_op, &registers.e},                         // 0xbb
 	{ "CP H", cp_op, &registers.h},                         // 0xbc
 	{ "CP L", cp_op, &registers.l},                         // 0xbd
-	{ "CP (HL)", NULL},                      // 0xbe
+	{ "CP (HL)", cp_mem, &registers.hl},                      // 0xbe
 	{ "CP A", cp_op, &registers.a},                         // 0xbf
 	{ "RET NZ", NULL},                       // 0xc0
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1

@@ -53,7 +53,7 @@ union address_space {
                                            * and (if enabled) a STAT interrupt is requested
                                            */
                 unsigned char dma[1]; // DMA Transfer and Start Address ($FF46)
-                unsigned char bgp[1]; /* BG Pallete Data ($FF47)
+                unsigned char lcd_bgp[1]; /* BG Pallete Data ($FF47)
                                        * 
                                        * Assigns gray shades to the color number of the BG
                                        *
@@ -90,6 +90,7 @@ unsigned char* lcd_scy = address_space.lcd_scy;
 unsigned char* lcd_scx = address_space.lcd_scx;
 unsigned char* lcd_windowy = address_space.lcd_windowy;
 unsigned char* lcd_windowx = address_space.lcd_windowx;
+unsigned char* lcd_bgp = address_space.lcd_bgp;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
@@ -110,7 +111,7 @@ void load_bootstrap_rom() {
 void load_cartridge(char* filename) {
 
     FILE* cartridge = fopen(filename, "rb");
-    fread(memory+256, sizeof(unsigned char), 32768, cartridge);
+    fread(memory+256, sizeof(unsigned char), 0x3F00, cartridge);
 
     fclose(cartridge);
 }
