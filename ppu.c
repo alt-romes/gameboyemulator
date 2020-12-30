@@ -16,7 +16,6 @@ static const int TOTAL_SCANLINE_CYCLES = 456;
 static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
 
-
 /*---- LCD Control Status -----------------------------------------*/
 
 
@@ -127,12 +126,134 @@ static void set_lcd_stat() {
 
 
 
+/*---- Rendering --------------------------------------------------*/
+
+
+static unsigned char scanlinesbuffer[160*144];
+
+static void render_frame() {
+
+    for (int pixel=0; pixel < sizeof (scanlinesbuffer); pixel++) {
+
+
+    }
+}
+
+static void render_sprites() {
+
+    // TODO
+}
+
+static void render_tiles() {
+
+    printf("RENDERING TILES\n");
+
+    /* From the pandocs:
+
+       LCD Control:
+
+        Bit 6 - Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
+        Bit 5 - Window Display Enable (0=Off, 1=On)
+        Bit 4 - BG & Window Tile Data Select (0=8800-97FF, 1=8000-8FFF)
+        Bit 3 - BG Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
+        Bit 2 - OBJ (Sprite) Size (0=8x8, 1=8x16)
+        Bit 1 - OBJ (Sprite) Display Enable (0=Off, 1=On)
+        Bit 0 - BG Display (for CGB see below) (0=Off, 1=On)
+
+     */
+    
+    unsigned char using_window = 0;
+    unsigned short tile_data_base_address;        // location where tiles are described 
+
+    unsigned short tilemap_base_address;          // location where background (either window or actual BG)
+                                                 // tiles to be used are specified (by id)
+
+    if (((*lcdc >> 4 ) & 1)                       // Test LCDC Bit 5 (enables or disables Window)
+            && (*lcd_windowy <= *lcd_ly))        // and if current scanline is within window Y position
+        using_window = 1;
+
+    tile_data_base_address = ((*lcdc >> 3) & 1) ? 0x8000 : 0x8800;   // Test LCDC Bit 4 (if 0, the ids are signed bytes and we'll have to check it ahead)
+
+
+    if (!using_window)
+        tilemap_base_address = ((*lcdc >> 2) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 3 (which BG tile map address)
+
+    else
+        tilemap_base_address = ((*lcdc >> 5) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 6 (which Window tile map address)
+
+
+    // Find tile row, then pixel row in tile,
+    // and add the whole line of pixels to framebuffer
+    
+    unsigned char yPos = *lcd_scy + *lcd_ly;    // Y pos in 256x256 background
+    unsigned char tile_row = (char) (yPos / 8); // 8 pixels per tile
+
+    unsigned char pixels_drawn = 0;
+    while (pixels_drawn < 160) {
+        printf("Pixels Drawn: %d\n", pixels_drawn);
+
+        unsigned char xPos = pixels_drawn + *lcd_scx;        // X pos in 256x256 background
+        unsigned char tile_col = (char) (xPos / 8);   // 8 pixels per tile
+
+        short tile_id;
+       
+        // Get the tile id from tilemap + offset,
+        // Then get the data for that tile id
+        unsigned short tile_address = tilemap_base_address+tile_row+tile_col;
+        unsigned short tile_data_location = tile_data_base_address;
+
+        if ((*lcdc >> 3) & 1) {                     // if tile identity is unsigned
+            tile_id = (unsigned char) memory[tile_address];
+            tile_data_location += (tile_id*16);        // each tile is 16 bytes long, start at 0
+        } else {
+            tile_id = (char) memory[tile_address];
+            tile_data_location += ((tile_id+128) * 16); // each tile is 16 bytes, start at offset 128 (signed)
+        }
+
+        // figure out pixel line in tile, load color data for that line
+        // get colors from pallete, mix with data to create color 
+        // set pixel with color in scanlinesbuffer (which will be used in create framebuffer & render)
+
+        unsigned char line_byte_in_tile = (yPos % 8) * 2;   // each tile has 8 vertical lines, each line uses 2 bytes
+
+        unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile];
+        unsigned char hi_color_bit = memory[tile_data_location+line_byte_in_tile+1];
+
+        // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
+        // Add those pixels to the scanlines buffer, and add up to the amount of pixels drawn
+        unsigned char tile_pixels_drawn = 0;
+        unsigned char hpixel_in_tile = (xPos % 8);
+        for(; hpixel_in_tile < 8 && pixels_drawn+hpixel_in_tile<160+*lcd_scx; hpixel_in_tile++) {
+
+            unsigned char pixel_color = 0;
+            
+            pixel_color |= (hi_color_bit >> (7 - hpixel_in_tile)) & 1; // 7-pixel because pixel 0 is in bit 7
+            pixel_color <<= 1;
+            pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
+
+            scanlinesbuffer[*lcd_ly + hpixel_in_tile] = pixel_color;
+        
+            tile_pixels_drawn++;
+        }
+        
+        pixels_drawn+=tile_pixels_drawn;
+             
+    }
+
+}
+
+
+
 /*---- Main Logic and Execution -----------------------------------*/
 
 
 static void draw_scanline() {
 
-    //TODO
+    if (*lcdc & 0x1)    // LCDC Bit 0 enables or disables Background (BG + Window) Display
+        render_tiles();
+
+    if (*lcdc & 0x2)    // LCDC Bit 1 enables or disables Sprites
+        render_sprites();
 }
 
 void ppu(int cycles) {

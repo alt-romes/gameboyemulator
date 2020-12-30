@@ -86,7 +86,20 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+void run_tests() {
 
+    // TODO and TO TRY
+    load_tests();
+
+    // http://slack.net/~ant/old/gb-tests/
+
+    //    blarggs test - serial output
+    if (memory[0xff02] == 0x81) {
+        char c = memory[0xff01];
+        printf("%c", c);
+        memory[0xff02] = 0x0;
+    }
+}
 
 // IDEA: implement built in debugger
 // IDEA: make smallest possible version of the emulator ?

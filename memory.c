@@ -52,7 +52,7 @@ union address_space {
                                            * the coincident bit in the STAT becomes set,
                                            * and (if enabled) a STAT interrupt is requested
                                            */
-                unsigned char padding__[1];
+                unsigned char dma[1]; // DMA Transfer and Start Address ($FF46)
                 unsigned char bgp[1]; /* BG Pallete Data ($FF47)
                                        * 
                                        * Assigns gray shades to the color number of the BG
@@ -61,7 +61,11 @@ union address_space {
                                        * Bit 5-4 - Shade color for Color Number 2
                                        * etc...
                                        */
-                unsigned char padding___[0x38];
+                unsigned char obj_pallete_0_data[1]; // pallete 0 for sprites ($FF48)
+                unsigned char obj_pallete_1_data[1]; // pallete 1 for sprites ($FF49)
+                unsigned char lcd_windowy[1]; // window y location in relation to scroll (viewport) ($FF4A)
+                unsigned char lcd_windowx[1]; // window x location in relation to scroll (viewport) ($FF4B)
+                unsigned char padding__[0x34];
             };
             unsigned char ioports[0x80]; // IO Ports ($FF00)
         };
@@ -82,7 +86,10 @@ unsigned char* lcdc = address_space.lcdc;
 unsigned char* lcdc_stat = address_space.lcdc_stat;
 unsigned char* lcd_ly = address_space.lcd_ly;
 unsigned char* lcd_lyc = address_space.lcd_lyc;
-
+unsigned char* lcd_scy = address_space.lcd_scy;
+unsigned char* lcd_scx = address_space.lcd_scx;
+unsigned char* lcd_windowy = address_space.lcd_windowy;
+unsigned char* lcd_windowx = address_space.lcd_windowx;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
@@ -106,5 +113,11 @@ void load_cartridge(char* filename) {
     fread(memory+256, sizeof(unsigned char), 32768, cartridge);
 
     fclose(cartridge);
+}
+
+void load_tests() {
+
+    
+
 }
 
