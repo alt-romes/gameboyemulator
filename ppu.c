@@ -135,8 +135,16 @@ static void render_frame() {
 
     for (int pixel=0; pixel < sizeof (scanlinesbuffer); pixel++) {
 
+        if (pixel % 160 == 0)
+            printf("\n");
 
+        if (scanlinesbuffer[pixel] == 0) 
+            printf(". ");
+        else {
+            printf("%d ", scanlinesbuffer[pixel]);
+        }
     }
+    printf("\n"); 
 }
 
 static void render_sprites() {
@@ -146,12 +154,15 @@ static void render_sprites() {
 
 static void render_tiles() {
 
+#ifdef DEBUGPPU
     printf("RENDERING TILES\n");
+#endif
 
     /* From the pandocs:
 
        LCD Control:
 
+        Bit 7 - LCD Display Enable             (0=Off, 1=On)
         Bit 6 - Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
         Bit 5 - Window Display Enable (0=Off, 1=On)
         Bit 4 - BG & Window Tile Data Select (0=8800-97FF, 1=8000-8FFF)
@@ -160,27 +171,27 @@ static void render_tiles() {
         Bit 1 - OBJ (Sprite) Display Enable (0=Off, 1=On)
         Bit 0 - BG Display (for CGB see below) (0=Off, 1=On)
 
+        Bootstrap LCDC: 145 (10010001)
+
      */
     
     unsigned char using_window = 0;
-    unsigned short tile_data_base_address;        // location where tiles are described 
+    unsigned short tile_data_base_address;                          // location where tiles are described 
+    tile_data_base_address = ((*lcdc >> 4) & 1) ? 0x8000 : 0x8800;  // Test LCDC Bit 4 (if 0, the ids are signed bytes and we'll have to check it ahead)
 
-    unsigned short tilemap_base_address;          // location where background (either window or actual BG)
-                                                 // tiles to be used are specified (by id)
+    unsigned short tilemap_base_address;            // location where background (either window or actual BG)
+                                                    // tiles to be used are specified (by id)
 
-    if (((*lcdc >> 4 ) & 1)                       // Test LCDC Bit 5 (enables or disables Window)
-            && (*lcd_windowy <= *lcd_ly))        // and if current scanline is within window Y position
+
+    if (((*lcdc >> 5 ) & 1)                         // Test LCDC Bit 5 (enables or disables Window)
+            && (*lcd_windowy <= *lcd_ly))           // and if current scanline is within window Y position
         using_window = 1;
 
-    tile_data_base_address = ((*lcdc >> 3) & 1) ? 0x8000 : 0x8800;   // Test LCDC Bit 4 (if 0, the ids are signed bytes and we'll have to check it ahead)
-
-
     if (!using_window)
-        tilemap_base_address = ((*lcdc >> 2) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 3 (which BG tile map address)
+        tilemap_base_address = ((*lcdc >> 3) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 3 (which BG tile map address)
 
     else
-        tilemap_base_address = ((*lcdc >> 5) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 6 (which Window tile map address)
-
+        tilemap_base_address = ((*lcdc >> 6) & 1) ? 0x9C00 : 0x9800; // Test LCDC Bit 6 (which Window tile map address)
 
     // Find tile row, then pixel row in tile,
     // and add the whole line of pixels to framebuffer
@@ -190,7 +201,6 @@ static void render_tiles() {
 
     unsigned char pixels_drawn = 0;
     while (pixels_drawn < 160) {
-        printf("Pixels Drawn: %d\n", pixels_drawn);
 
         unsigned char xPos = pixels_drawn + *lcd_scx;        // X pos in 256x256 background
         unsigned char tile_col = (char) (xPos / 8);   // 8 pixels per tile
@@ -199,16 +209,18 @@ static void render_tiles() {
        
         // Get the tile id from tilemap + offset,
         // Then get the data for that tile id
-        unsigned short tile_address = tilemap_base_address+tile_row+tile_col;
+
+        unsigned short tile_address = tilemap_base_address+(tile_row*32)+tile_col;   // tile ids are organized from tilemap_base as 32 rows of 32 bytes
         unsigned short tile_data_location = tile_data_base_address;
 
-        if ((*lcdc >> 3) & 1) {                     // if tile identity is unsigned
+        if ((*lcdc >> 4) & 1) {                         // if tile identity is unsigned
             tile_id = (unsigned char) memory[tile_address];
-            tile_data_location += (tile_id*16);        // each tile is 16 bytes long, start at 0
+            tile_data_location += (tile_id*16);         // each tile is 16 bytes long, start at 0
         } else {
             tile_id = (char) memory[tile_address];
             tile_data_location += ((tile_id+128) * 16); // each tile is 16 bytes, start at offset 128 (signed)
         }
+
 
         // figure out pixel line in tile, load color data for that line
         // get colors from pallete, mix with data to create color 
@@ -218,6 +230,9 @@ static void render_tiles() {
 
         unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile];
         unsigned char hi_color_bit = memory[tile_data_location+line_byte_in_tile+1];
+
+        /* printf("writing line: %d\n", *lcd_ly); */
+
 
         // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
         // Add those pixels to the scanlines buffer, and add up to the amount of pixels drawn
@@ -231,14 +246,20 @@ static void render_tiles() {
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
 
-            scanlinesbuffer[*lcd_ly + hpixel_in_tile] = pixel_color;
-        
+            /* printf("writing position: %d\n", (*lcd_ly)*160 + pixels_drawn + hpixel_in_tile); */
+
+            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = pixel_color;
+
             tile_pixels_drawn++;
         }
-        
+
         pixels_drawn+=tile_pixels_drawn;
              
     }
+
+#ifdef DEBUGPPU
+    printf("Pixels Drawn: %d\n", pixels_drawn);
+#endif
 
 }
 
@@ -296,111 +317,3 @@ void ppu(int cycles) {
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void printvram() {
-
-    unsigned short vram_start = 0x00a7;
-    unsigned short vram_end = 0x0100;
-
-    printf("printing memory %d\n", vram_start);
-
-    for (int i=vram_start; i<vram_end; i++) {
-        printf("$%02x ", memory[i]);
-    }
-
-    printf("\n");
-
-}
-
-void print_tiles() {
-
-
-    unsigned short vram_start = 0x9800;
-    unsigned short vram_end = 0x9BFF;
-
-    /* printvram(); */
-
-    char tiles[1000][8][8];
-
-    int tilesn = 0;
-
-    // for each tile (read 16 bytes)
-    for (int i=vram_start; i<vram_end-16; i+=16) {
-
-        int row = 0;
-
-        // for each row in the tile (read 2 bytes)
-        for (int j=i; j<i+8-2; j+=2) {
-
-            unsigned char low_colorb = memory[j];
-            unsigned char high_colorb = memory[j+1];
-
-            int column = 0;
-
-            // for each bit in the two bytes for the row
-            for(int z=0; z<7; z++) {
-                    
-                unsigned char mask = 1 << (7-z);
-
-                unsigned char mlc = low_colorb & mask;
-                unsigned char mhc = high_colorb & mask;
-
-                char color = ' ';
-
-                if (mlc > 0 && mhc > 0)
-                    color = '@';
-                else if (mhc > 0 && mlc == 0)
-                    color = 'x';
-                else if (mhc == 0 && mlc > 0)
-                    color = '.';
-
-                tiles[tilesn][row][column++] = color;
-
-            }
-
-            row++;
-
-        }
-
-        tilesn++;
-            
-    }
-
-
-    for (int row=0; row<32; row++) {
-
-        for (int byter=0; byter<8; byter++) {
-
-            for (int i=0; i<32; i++) {
-
-                for (int bytec = 0; bytec<8; bytec++) {
-
-                    printf("%c ", tiles[row+i][byter][bytec]);
-
-                }
-
-
-            }
-
-            printf("\n");
-
-        }
-
-
-    }
-
-}

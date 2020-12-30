@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+//#define DEBUGEMU
+//#define DEBUGCPU
+//#define DEBUGPPU
+
 #include "memory.c"
 #include "cpu.c"
 #include "ppu.c"
@@ -19,7 +24,7 @@ int time = 0;   /* time is in cycles */
 
 
 int i=0; // debug i (counter for debugging)
-int max_i = 30000;
+int max_i = 103000000;
 
 /*
  *  Update is called 60 times per second
@@ -34,7 +39,9 @@ void update() {
 
     while (cycles_this_frame < FRAME_MAX_CYCLES && i++ < max_i) {
 
+#ifdef DEBUGEMU
         printf("Instruction Number: %d\n", i);
+#endif
 
         int cycles = cpu();
 
@@ -48,8 +55,11 @@ void update() {
 
         cycles_this_frame += cycles;
     }
+#ifdef DEBUGEMU
+    printf("RAN %d CYCLES", cycles_this_frame);
+#endif
 
-    //TODO: Render
+    render_frame();
 
     time += cycles_this_frame;
 }
@@ -57,14 +67,13 @@ void update() {
 
 void emulate() {
 
-    debug();
     while (registers.pc < 257 && i < max_i) {
 
         update();
 
-        debug();
-
+#ifdef DEBUGEMU
         printf("current time: %d\n\n", time);
+#endif
         sleep(1/60);    /* update runs 60 times per second */
     }
 
@@ -77,11 +86,9 @@ int main(int argc, char *argv[])
 
     boot();
 
-    load_cartridge("tetris-jp.gb");
+    /* load_cartridge("tetris-jp.gb"); */
 
     emulate();
-
-    /* print_tiles(); */
 
     return 0;
 }

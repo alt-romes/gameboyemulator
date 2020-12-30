@@ -131,12 +131,16 @@ static void clear_flag(unsigned char flag) {
 /*---- CPU Utils ----------------*/
 
 static unsigned char read8bit_operand() {
+#ifdef DEBUGCPU
     printf("8-bit read: %d\n", memory[registers.pc]);
+#endif
     return memory[registers.pc++];
 }
 
 static char read8bit_signed_operand() {
+#ifdef DEBUGCPU
     printf("signed 8-bit read: %d\n", (char) memory[registers.pc]);
+#endif
     return (char) memory[registers.pc++];
 }
 
@@ -147,8 +151,10 @@ static unsigned short read16bit_operand() {
 
     unsigned short operand = 0 | operand_high;
     operand = (operand << 8) | operand_low;
-
+    
+#ifdef DEBUGCPU
     printf("16-bit read: %d\n", operand);
+#endif
     return operand;
 }
 
@@ -1232,10 +1238,14 @@ static int execute() {
 
     if (instruction.execute) {
 
+#ifdef DEBUGCPU
         printf("%s -> 0x%x\n", instruction.disassembly, opcode);
+#endif
         instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
 
+#ifdef DEBUGCPU
         debug();
+#endif
 
     } else {
 
