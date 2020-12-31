@@ -306,11 +306,10 @@ static void add8bit_from_mem(unsigned char* reg_with_pointer) {
 }
 
 static void sub(unsigned char* reg) {
+
     unsigned char complement_to_2 = ~(*reg) + 1;
     add8bit(&complement_to_2);
-
 }
-
 
 static void adc (unsigned char* regs) {
 
@@ -1304,10 +1303,4 @@ int cpu() {
     process_interrupts();
 
     return cycles;
-}
-
-void boot() {
-
-
-    // TODO: set boot rom, set flags
 }
