@@ -205,7 +205,7 @@ static void init_gui() {
         uniform sampler2D tex;\
         void main()\
         {\
-            frag_color = texture(tex, TexCoord);\
+            frag_color = vec4(texture(tex, TexCoord).r);\
         }\
     ";
 
@@ -241,10 +241,10 @@ static void init_gui() {
 
     float vertices[] = {
         // positions          // texture coords
-         0.5f,  1.0f, 0.0f,   1.0f, 1.0f,   // top right
-         0.5f, -1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-        -0.5f, -1.0f, 0.0f,   0.0f, 0.0f,   // bottom left
-        -0.5f,  1.0f, 0.0f,   0.0f, 1.0f    // top left 
+         1.0f,  1.0f, 0.0f,   1.0f, 0.0f,   // top right
+         1.0f, -1.0f, 0.0f,   1.0f, 1.0f,   // bottom right
+        -1.0f, -1.0f, 0.0f,   0.0f, 1.0f,   // bottom left
+        -1.0f,  1.0f, 0.0f,   0.0f, 0.0f    // top left 
     };
     unsigned int indices[] = {
         0, 1, 3, // first triangle
@@ -273,38 +273,20 @@ static void init_gui() {
 
     int textureLoc = glGetUniformLocation(prog_id, "tex");
 
-
     glUniform1i(textureLoc, 0); // Set the active texture location (default is 0) (when bindTexture, it'll bind to active texture, and we can have multiple of these)
 
+    /* Bind texture once, since we only use one and we won't be changing it */
     unsigned int tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
 
-    /* Bind texture once, since we only use one and we won't be changing it */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    while(!glfwWindowShouldClose(window)) {
-
-        glClearColor(0.6f, 0.3f, 0.3f, 1.0f);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        /* unsigned char teste[160*144*3]; */
-        /* for (int i=0;i<sizeof(teste)-3; i+=3) { */
-        /*     teste[i] = 240; */
-        /*     teste[i+1] = 240; */
-        /*     teste[i+2] = 240; */
-        /* } */
-
-        /* glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, teste); */
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        glfwSwapBuffers(window);
-
-        /* Poll for and process events */
-        glfwPollEvents();
-    }
-
+    glClearColor(1, 1, 1, 1);
 }
 
 
@@ -314,17 +296,11 @@ static void render_frame() {
 
         /* processInput(window); ?? */ 
 
-
         /* Render here */
 
-        glClear(GL_COLOR_BUFFER_BIT);
+        /* glClear(GL_COLOR_BUFFER_BIT); */ // don't need it for now
 
-
-
-        unsigned char teste[160*144];
-        for (int i=0;i<sizeof(teste); i++) teste[i] = 250;
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, teste);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, scanlinesbuffer);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
@@ -465,7 +441,7 @@ static void render_tiles() {
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
 
-            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = pallete_colors[pixel_color]*85;
+            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = (3-pallete_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black
 
             tile_pixels_drawn++;
         }
