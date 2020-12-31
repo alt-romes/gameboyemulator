@@ -8,8 +8,13 @@
  *
  * > LCD
  * http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
+ *
+ * > OpenGL Textures
+ * https://learnopengl.com/Getting-started/Textures
  */
-
+#define GLEW_STATIC
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
@@ -129,41 +134,190 @@ static void set_lcd_stat() {
 /*---- Rendering --------------------------------------------------*/
 
 
-static unsigned char scanlinesbuffer[160*144];
+const int SCREEN_WIDTH = 160;
+const int SCREEN_HEIGHT = 144;
+
+static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
+
+GLFWwindow* window;
+
+static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    // make sure the viewport matches the new window dimensions; note that width and
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+}
+
+static void init_gui() {
+
+    /* Initialize the library */
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Gameboy", NULL, NULL);
+    if (!window)
+    {
+        glfwTerminate();
+        exit(-1);
+    }
+
+    glfwMakeContextCurrent(window);
+
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    /* Glew initialization */
+    if (glewInit() != GLEW_OK) exit(1);
+
+    /* Create shaders */
+    const char* vert_shader = "\
+        #version 330 core\n\
+        layout (location = 0) in vec3 iPos;\
+        layout (location = 1) in vec2 iTexCoord;\
+        out vec2 TexCoord;\
+        void main()\
+        {\
+            TexCoord = vec2(iTexCoord.x, iTexCoord.y);\
+            gl_Position = vec4(iPos, 1.0);\
+        }\
+    ";
+
+    unsigned int vertex = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex, 1, &vert_shader, NULL);
+    glCompileShader(vertex);
+
+    // print compile errors
+    int success;
+    glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
+    char infoLog[512];
+    if(!success)
+    {
+        glGetShaderInfoLog(vertex, 512, NULL, infoLog);
+        printf("Compile Error: %s\n", infoLog);
+    };
+
+    const char* frag_shader = "\
+        #version 330 core\n\
+        out vec4 FragColor;\
+        in vec2 TexCoord;\
+        uniform sampler2D tex;\
+        void main()\
+        {\
+            FragColor = texture(tex, TexCoord);\
+        }\
+    ";
+
+    unsigned int fragment = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment, 1, &frag_shader, NULL);
+    glCompileShader(fragment);
+
+    // print compile errors
+    glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
+    if(!success)
+    {
+        glGetShaderInfoLog(fragment, 512, NULL, infoLog);
+        printf("Compile Error: %s\n", infoLog);
+    };
+
+    unsigned int prog_id = glCreateProgram();
+
+    glAttachShader(prog_id, vertex);
+    glAttachShader(prog_id, fragment);
+    glLinkProgram(prog_id);
+
+    glGetProgramiv(prog_id, GL_LINK_STATUS, &success);
+    if(!success)
+    {
+        glGetProgramInfoLog(prog_id, 512, NULL, infoLog);
+        printf("Compile Error: %s\n", infoLog);
+    }
+
+    glDeleteShader(vertex);
+    glDeleteShader(fragment);
+
+    glUseProgram(prog_id);
+
+    float vertices[] = {
+        // positions          // texture coords
+         1.0f,  1.0f, 0.0f,   1.0f, 1.0f,   // top right
+         1.0f, -1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+        -1.0f, -1.0f, 0.0f,   0.0f, 0.0f,   // bottom left
+        -1.0f,  1.0f, 0.0f,   0.0f, 1.0f    // top left 
+    };
+    unsigned int indices[] = {
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
+    };
+
+    unsigned int vertex_attr_buf, vertex_data_buf, elem_data_buf;
+    glGenVertexArrays(1, &vertex_attr_buf);
+    glGenBuffers(1, &vertex_data_buf);
+    glGenBuffers(1, &elem_data_buf);
+
+
+    glBindVertexArray(vertex_attr_buf); /* we only need to set it once */
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_data_buf);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elem_data_buf);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    int textureLoc = glGetUniformLocation(prog_id, "tex");
+
+
+    glUniform1i(textureLoc, 0); // Set the active texture location (default is 0) (when bindTexture, it'll bind to active texture, and we can have multiple of these)
+
+    /* Bind texture once, since we only use one and we won't be changing it */
+    unsigned int tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+}
+
 
 static void render_frame() {
 
-    /*  Background Pallete Register
-          Bit 7-6 - Shade for Color Number 3
-          Bit 5-4 - Shade for Color Number 2
-          Bit 3-2 - Shade for Color Number 1
-          Bit 1-0 - Shade for Color Number 0
+    if(!glfwWindowShouldClose(window)) {
 
-        Possible shades of grey
-          0  White
-          1  Light gray
-          2  Dark gray
-          3  Black
-     */
+        /* processInput(window); ?? */ 
 
-    unsigned char colors[4];
-    colors[3] = *lcd_bgp >> 6;
-    colors[2] = (*lcd_bgp >> 4) & 0x3;
-    colors[1] = (*lcd_bgp >> 2) & 0x3;
-    colors[0] = *lcd_bgp & 0x3;
 
-    for (int pixel=0; pixel < sizeof (scanlinesbuffer); pixel++) {
+        /* Render here */
 
-        if (pixel % 160 == 0)
-            printf("\n");
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        if (colors[scanlinesbuffer[pixel]] == 3) 
-            printf(". ");
-        else 
-            printf("%d ", colors[scanlinesbuffer[pixel]]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, scanlinesbuffer);
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        /* Swap front and back buffers
+         * (back buffer is being written to, front buffer is being rendered)
+         */
+        glfwSwapBuffers(window);
+
+        /* Poll for and process events */
+        glfwPollEvents();
+
     }
-    printf("\n"); 
+    else {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        exit(0);
+    }
+
 }
+
+
+
+
 
 static void render_sprites() {
 
@@ -250,6 +404,25 @@ static void render_tiles() {
         unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile+1];
 
 
+        /*  Background Pallete Register
+              Bit 7-6 - Shade for Color Number 3
+              Bit 5-4 - Shade for Color Number 2
+              Bit 3-2 - Shade for Color Number 1
+              Bit 1-0 - Shade for Color Number 0
+
+            Possible shades of grey
+              0  White
+              1  Light gray
+              2  Dark gray
+              3  Black
+         */
+
+        unsigned char pallete_colors[4];
+        pallete_colors[3] = *lcd_bgp >> 6;
+        pallete_colors[2] = (*lcd_bgp >> 4) & 0x3;
+        pallete_colors[1] = (*lcd_bgp >> 2) & 0x3;
+        pallete_colors[0] = *lcd_bgp & 0x3;
+
         // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
         // Add those pixels to the scanlines buffer, and add up to the amount of pixels drawn
         unsigned char tile_pixels_drawn = 0;
@@ -262,7 +435,7 @@ static void render_tiles() {
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
 
-            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = pixel_color;
+            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = pallete_colors[pixel_color]*85;
 
             tile_pixels_drawn++;
         }

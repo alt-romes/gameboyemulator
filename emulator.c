@@ -20,7 +20,7 @@ const int FRAME_MAX_CYCLES = 69905; /*
                                      *      We can use this to sync graphics with procressing instructions
                                      */
 
-int time = 0;   /* time is in cycles */
+int emulation_time = 0;   /* time is in cycles */
 
 
 int i=0; // debug i (counter for debugging)
@@ -61,7 +61,7 @@ void update() {
 
     render_frame();
 
-    time += cycles_this_frame;
+    emulation_time += cycles_this_frame;
 }
 
 
@@ -72,10 +72,16 @@ void emulate() {
         update();
 
 #ifdef DEBUGEMU
-        printf("current time: %d\n\n", time);
+        printf("current time: %d\n\n", emulation_time);
 #endif
         sleep(1/60);    /* update runs 60 times per second */
     }
+
+}
+
+static void boot() {
+
+    init_gui();
 
 }
 
@@ -84,9 +90,9 @@ int main(int argc, char *argv[])
 {    
     load_bootstrap_rom();
 
-    boot();
-
     load_cartridge("zelda.gb");
+
+    boot();
 
     emulate();
 
