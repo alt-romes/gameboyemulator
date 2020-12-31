@@ -438,17 +438,20 @@ static void rl_op(unsigned char* reg) {
 
     // check if carry is set
     unsigned char hadcarry = 0;
-	if (registers.f & (1<<3)) hadcarry++;
+	if (registers.f & FLAG_CY) hadcarry++;
 
     // check highest bit from reg to check if carry should be set
-    if (((*reg) & 0x80) > 0) set_flag(FLAG_CY);
+    if (((*reg >> 7) & 1) > 0) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
     // rotate
-    *reg <<= *reg;
+    *reg <<= 1;
+
+    if (*reg == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
 
     // if had carry, set it to the lowest bit
-    if (hadcarry) *reg |= 0x01;
+    if (hadcarry) *reg |= 1;
 
     clear_flag(FLAG_N);
     clear_flag(FLAG_H);
