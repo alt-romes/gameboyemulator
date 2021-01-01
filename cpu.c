@@ -281,6 +281,11 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
 static void add8bit(unsigned char* s) {
 
+    // half carry flag
+    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
+    if ((*s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
     registers.a += *s;
 
     // zero flag
@@ -289,11 +294,6 @@ static void add8bit(unsigned char* s) {
 
     // add/sub flag
     clear_flag(FLAG_N);
-
-    // half carry flag
-    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
-    if ((*s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
-    else clear_flag(FLAG_H);
 
     // carry flag
     if (registers.a < *s) set_flag(FLAG_CY);
@@ -342,6 +342,9 @@ static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
 
 static void inc8bit(unsigned char* reg) {
 
+    if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
     (*reg)++;
 
     if (*reg==0) set_flag(FLAG_Z);
@@ -349,11 +352,12 @@ static void inc8bit(unsigned char* reg) {
 
     clear_flag(FLAG_N);
 
-    if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
-    else clear_flag(FLAG_H);
 }
 
 static void dec8bit(unsigned char* reg) {
+
+	if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
+	else clear_flag(FLAG_H);
 
 	(*reg)--;
 
@@ -362,14 +366,12 @@ static void dec8bit(unsigned char* reg) {
 
 	set_flag(FLAG_N);
 
-	if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
-	else clear_flag(FLAG_H);
 }
 
 static void cp_op(unsigned char* reg) {
 
     unsigned char s = *reg;
-	  unsigned char cp_a = registers.a - s;
+    unsigned char cp_a = registers.a - s;
 
     // zero flag
     if (cp_a == 0) set_flag(FLAG_Z);
@@ -377,6 +379,8 @@ static void cp_op(unsigned char* reg) {
 
     // add/sub flag
     set_flag(FLAG_N);
+
+    // TODO: Review this half carry flag
 
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
@@ -411,7 +415,7 @@ static void add16bit(unsigned short* source) {
 
 	clear_flag(FLAG_N);
 
-	//TODO : verify half-carry flag (from low 8 to high 8)
+	//TODO : verify half-carry flag (from low 8 to high 8?)
 
 	if ( (to_add & 0xFF) + (add_bit & 0xFF) > 0xFF ) set_flag(FLAG_H);
 	else clear_flag(FLAG_H);
@@ -441,17 +445,17 @@ static void rl_op(unsigned char* reg) {
 	if (registers.f & FLAG_CY) hadcarry++;
 
     // check highest bit from reg to check if carry should be set
-    if (((*reg >> 7) & 1) > 0) set_flag(FLAG_CY);
+    if ((*reg >> 7) & 1) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
     // rotate
     *reg <<= 1;
 
-    if (*reg == 0) set_flag(FLAG_Z);
-    else clear_flag(FLAG_Z);
-
     // if had carry, set it to the lowest bit
     if (hadcarry) *reg |= 1;
+
+    if (*reg == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N);
     clear_flag(FLAG_H);
@@ -488,7 +492,7 @@ static void bit_op(void* n, unsigned char * reg) {
 
     unsigned char n_byte = (unsigned char) n;
 
-    if ( *reg & (1 << n_byte)  ) set_flag(FLAG_Z);
+    if ( *reg & (1 << n_byte) ) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N);
@@ -1306,4 +1310,13 @@ int cpu() {
     process_interrupts();
 
     return cycles;
+}
+
+void boot_tests() {
+    registers.af = 0x01B0;
+    registers.bc = 0x0013;
+    registers.de = 0x00D8;
+    registers.hl = 0x014D;
+    registers.sp = 0xfffe;
+    registers.pc = 0x100;
 }

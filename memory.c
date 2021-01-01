@@ -117,8 +117,10 @@ void load_cartridge(char* filename) {
 }
 
 void load_tests() {
-
     
+    FILE* test = fopen("tests/cpu_instrs/cpu_instrs.gb", "rb");
+    fread(memory, sizeof(unsigned char), 0x4000, test);
 
+    fclose(test);
 }
 

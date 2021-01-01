@@ -83,9 +83,12 @@ static void boot() {
 
 }
 
+void run_tests();
 
 int main(int argc, char *argv[])
 {    
+    run_tests();
+
     load_bootstrap_rom();
 
     load_cartridge("tetris-jp.gb");
@@ -102,6 +105,10 @@ void run_tests() {
     // TODO and TO TRY
     load_tests();
 
+    boot_tests();
+
+    emulate();
+
     // http://slack.net/~ant/old/gb-tests/
 
     //    blarggs test - serial output
@@ -110,6 +117,8 @@ void run_tests() {
         printf("%c", c);
         memory[0xff02] = 0x0;
     }
+
+    exit(0);
 }
 
 // IDEA: implement built in debugger
