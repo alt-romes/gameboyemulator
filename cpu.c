@@ -240,11 +240,18 @@ static void load8bit_to_io_mem_operand(unsigned char* source) {
     load8bit_to_io_mem(&operand, source);
 }
 
-static void load8bit_inc_to_mem(unsigned short* reg_with_pointer) {
+static void load8bit_inc_to_mem() {
 
-	load8bit(&memory[*reg_with_pointer], &registers.a);
+	load8bit(&memory[registers.hl], &registers.a);
 
-	(*reg_with_pointer)++;
+	registers.hl++;
+}
+
+static void load8bit_inc_from_mem() {
+
+	load8bit(&registers.a, &memory[registers.hl]);
+
+	registers.hl++;
 }
 
 
@@ -672,7 +679,7 @@ const struct instruction instructions[256] = {
 	{ "RRA", NULL},                          // 0x1f
 	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
-	{ "LDI (HL), A", load8bit_inc_to_mem, &registers.hl},                  // 0x22
+	{ "LDI (HL), A", load8bit_inc_to_mem},                  // 0x22
 	{ "INC HL", inc16bit, &registers.hl},                       // 0x23
 	{ "INC H", inc8bit, &registers.h},                        // 0x24
 	{ "DEC H", dec8bit, &registers.h},                        // 0x25
@@ -680,7 +687,7 @@ const struct instruction instructions[256] = {
 	{ "DAA", NULL},                          // 0x27
 	{ "JR Z, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 1},                 // 0x28
 	{ "ADD HL, HL", add16bit, &registers.hl},                   // 0x29
-	{ "LDI A, (HL)", NULL},                  // 0x2a
+	{ "LDI A, (HL)", load8bit_inc_from_mem},                  // 0x2a
 	{ "DEC HL", dec16bit, &registers.hl},                       // 0x2b
 	{ "INC L", inc8bit, &registers.l},                        // 0x2c
 	{ "DEC L", dec8bit, &registers.l},                        // 0x2d

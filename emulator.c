@@ -112,11 +112,11 @@ void run_tests() {
     // http://slack.net/~ant/old/gb-tests/
 
     //    blarggs test - serial output
-    if (memory[0xff02] == 0x81) {
-        char c = memory[0xff01];
-        printf("%c", c);
-        memory[0xff02] = 0x0;
-    }
+    /* if (memory[0xff02] == 0x81) { */
+    /*     char c = memory[0xff01]; */
+    /*     printf("%c", c); */
+    /*     memory[0xff02] = 0x0; */
+    /* } */
 
     exit(0);
 }
