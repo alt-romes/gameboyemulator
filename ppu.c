@@ -12,9 +12,11 @@
  * > OpenGL Textures
  * https://learnopengl.com/Getting-started/Textures
  */
+#ifdef USE_GRAPHICS
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#endif
 
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
@@ -139,6 +141,7 @@ const int SCREEN_HEIGHT = 144;
 
 static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
 
+#ifdef USE_GRAPHICS
 GLFWwindow* window;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -147,9 +150,10 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 }
+#endif
 
 static void init_gui() {
-
+#ifdef USE_GRAPHICS
     /* Initialize the library */
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -287,11 +291,12 @@ static void init_gui() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glClearColor(1, 1, 1, 1);
+#endif
 }
 
 
 static void render_frame() {
-
+#ifdef USE_GRAPHICS
     if(!glfwWindowShouldClose(window)) {
 
         /* processInput(window); ?? */ 
@@ -318,7 +323,7 @@ static void render_frame() {
         glfwTerminate();
         exit(0);
     }
-
+#endif
 }
 
 

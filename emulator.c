@@ -6,6 +6,8 @@
 //#define DEBUGCPU
 //#define DEBUGPPU
 
+//#define USE_GRAPHICS
+
 #include "memory.c"
 #include "cpu.c"
 #include "ppu.c"
