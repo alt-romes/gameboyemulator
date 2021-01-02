@@ -208,6 +208,12 @@ static void load8bit_to_mem_operand(unsigned char * source) {
     load8bit(&memory[address], source);
 }
 
+static void load8bit_to_mem_from_operand(unsigned short * reg_with_pointer) {
+
+    unsigned char value = read8bit_operand();
+    load8bit(&memory[*reg_with_pointer], &value);
+}
+
 static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_with_pointer) {
 
     load8bit(destination, &memory[*reg_with_pointer]);
@@ -343,6 +349,18 @@ static void xor_reg(unsigned char* reg) {
 static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
 
     xor_reg(&memory[*reg_with_pointer]);
+}
+
+static void or_reg(unsigned char* reg) {
+
+    registers.a |= *reg;
+
+    if (registers.a == 0)
+        set_flag(FLAG_Z);
+    else
+        clear_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_H | FLAG_CY);
 }
 
 static void inc8bit(unsigned char* reg) {
@@ -696,7 +714,7 @@ const struct instruction instructions[256] = {
 	{ "INC SP", inc16bit, &registers.sp},                       // 0x33
 	{ "INC (HL)", NULL},                     // 0x34
 	{ "DEC (HL)", NULL},                     // 0x35
-	{ "LD (HL), 0x%02X", NULL},              // 0x36
+	{ "LD (HL), 0x%02X", load8bit_to_mem_from_operand, &registers.hl},              // 0x36
 	{ "SCF", NULL},                          // 0x37
 	{ "JR C, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 1},                 // 0x38
 	{ "ADD HL, SP", add16bit, &registers.hl, &registers.sp},                   // 0x39
@@ -818,14 +836,14 @@ const struct instruction instructions[256] = {
 	{ "XOR L", xor_reg, &registers.l},                        // 0xad
 	{ "XOR (HL)", xor_reg_from_mem, &registers.hl},                     // 0xae
 	{ "XOR A", xor_reg, &registers.a},                        // 0xaf
-	{ "OR B", NULL},                         // 0xb0
-	{ "OR C", NULL},                         // 0xb1
-	{ "OR D", NULL},                         // 0xb2
-	{ "OR E", NULL},                         // 0xb3
-	{ "OR H", NULL},                         // 0xb4
-	{ "OR L", NULL},                         // 0xb5
+	{ "OR B", or_reg, &registers.b},                         // 0xb0
+	{ "OR C", or_reg, &registers.c},                         // 0xb1
+	{ "OR D", or_reg, &registers.d},                         // 0xb2
+	{ "OR E", or_reg, &registers.e},                         // 0xb3
+	{ "OR H", or_reg, &registers.h},                         // 0xb4
+	{ "OR L", or_reg, &registers.l},                         // 0xb5
 	{ "OR (HL)", NULL},                      // 0xb6
-	{ "OR A", NULL},                         // 0xb7
+	{ "OR A", or_reg, &registers.a},                         // 0xb7
 	{ "CP B", cp_op, &registers.b},                         // 0xb8
 	{ "CP C", cp_op, &registers.c},                         // 0xb9
 	{ "CP D", cp_op, &registers.d},                         // 0xba

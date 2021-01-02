@@ -45,11 +45,6 @@ void update() {
         int cycles = cpu();
 
         if (debugger && (!debugger_offset || !(debugger_offset--))) {
-            
-            for(int i=0x134; i<=0x14D; i++)
-                printf("%d ", memory[i]);
-
-            printf("\n");
 
             char c = getchar();
             if (c == 'n')
@@ -82,7 +77,7 @@ void update() {
 
 void emulate() {
 
-    while (emulation_time<21000000) {
+    while (emulation_time<51000000) {
 
         update();
 
@@ -112,7 +107,7 @@ int main(int argc, char *argv[])
 
     run_tests();
 
-    insert_cartridge("tetris-jp.gb");
+    insert_cartridge("zelda.gb");
 
     load_roms();
 
