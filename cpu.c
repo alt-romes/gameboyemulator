@@ -313,6 +313,7 @@ static void sub(unsigned char* reg) {
 
     unsigned char complement_to_2 = ~(*reg) + 1;
     add8bit(&complement_to_2);
+    set_flag(FLAG_N);
 }
 
 static void adc (unsigned char* regs) {
@@ -384,15 +385,13 @@ static void cp_op(unsigned char* reg) {
     // add/sub flag
     set_flag(FLAG_N);
 
-    // TODO: Review this half carry flag
-
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
-    if ((s & 0xF) + (cp_a & 0xF) > 0xF) set_flag(FLAG_H);
+    if (((registers.a & 0xF) - (s & 0xF)) > (registers.a & 0xF)) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
     // carry flag
-    if (cp_a < s) set_flag(FLAG_CY);
+    if (cp_a > registers.a) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 }
 
@@ -689,7 +688,7 @@ const struct instruction instructions[256] = {
 	{ "DEC HL", dec16bit, &registers.hl},                       // 0x2b
 	{ "INC L", inc8bit, &registers.l},                        // 0x2c
 	{ "DEC L", dec8bit, &registers.l},                        // 0x2d
-	{ "LD L, 0x%02X", load8bit_operand, &registers.d},                 // 0x2e
+	{ "LD L, 0x%02X", load8bit_operand, &registers.l},                 // 0x2e
 	{ "CPL", NULL},                          // 0x2f
 	{ "JR NC, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 0},                // 0x30
 	{ "LD SP, 0x%04X", load16bit_operand, &registers.sp},             // 0x31

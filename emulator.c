@@ -25,8 +25,8 @@ const int FRAME_MAX_CYCLES = 69905; /*
 unsigned long emulation_time = 0;   /* time is in cycles */
 
 unsigned long debugger = 0;
-
 unsigned int debugger_offset = 0;
+unsigned int debug_from = -1;
 
 
 /*
@@ -47,7 +47,8 @@ void update() {
 #endif
 
 
-
+        if (registers.pc == debug_from)
+            debugger++;
 
         int cycles = cpu();
 
@@ -60,8 +61,9 @@ void update() {
                 debugger_offset = 100;
             if (c == 'm')
                 debugger_offset = 1000;
+            if (c == ',')
+                debugger_offset = 5000;
 
-            if (debugger++ % 2) printf("\e[1;1H\e[2J\n");
         }
 
 
@@ -69,8 +71,6 @@ void update() {
                       * the amount of cycles run by the processor
                       * in order to keep it in sync with the processor.
                       */
-
-
 
 
 
@@ -120,8 +120,9 @@ int main(int argc, char *argv[])
 
     if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {
 
-        debugger++;
-        printf("\e[1;1H\e[2J\n");
+        if (argc > 2) debug_from = atoi(argv[2]);
+        else debug_from = 0;
+
     }
 
 
