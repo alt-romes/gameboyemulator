@@ -2,11 +2,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-//#define DEBUGEMU
-//#define DEBUGCPU
-//#define DEBUGPPU
-
 //#define USE_GRAPHICS
+
+unsigned long debugger = 0;
 
 #include "memory.c"
 #include "cpu.c"
@@ -24,7 +22,6 @@ const int FRAME_MAX_CYCLES = 69905; /*
 
 unsigned long emulation_time = 0;   /* time is in cycles */
 
-unsigned long debugger = 0;
 unsigned int debugger_offset = 0;
 unsigned int debug_from = -1;
 
@@ -42,17 +39,17 @@ void update() {
 
     while (cycles_this_frame < FRAME_MAX_CYCLES) {
 
-#ifdef DEBUGEMU
-        printf("Instruction Number: %d\n", registers.pc);
-#endif
-
-
         if (registers.pc == debug_from)
             debugger++;
 
         int cycles = cpu();
 
         if (debugger && (!debugger_offset || !(debugger_offset--))) {
+            
+            for(int i=0x134; i<=0x14D; i++)
+                printf("%d ", memory[i]);
+
+            printf("\n");
 
             char c = getchar();
             if (c == 'n')
@@ -72,20 +69,10 @@ void update() {
                       * in order to keep it in sync with the processor.
                       */
 
-
-
-
-
         // TODO: Receive inputs/request interrupts?
-
-
-
 
         cycles_this_frame += cycles;
     }
-#ifdef DEBUGEMU
-    printf("RAN %d CYCLES", cycles_this_frame);
-#endif
 
     render_frame();
 
@@ -95,13 +82,10 @@ void update() {
 
 void emulate() {
 
-    while (emulation_time<11000000) {
+    while (emulation_time<21000000) {
 
         update();
 
-#ifdef DEBUGEMU
-        printf("current time: %lu\n\n", emulation_time);
-#endif
         sleep(1/60);    /* update runs 60 times per second */
     }
 
@@ -126,7 +110,6 @@ int main(int argc, char *argv[])
     }
 
 
-
     run_tests();
 
     insert_cartridge("tetris-jp.gb");
@@ -142,24 +125,15 @@ int main(int argc, char *argv[])
 
 void run_tests() {
 
-    // TODO and TO TRY
+    // http://slack.net/~ant/old/gb-tests/
+    
     load_tests();
 
     boot_tests();
 
     emulate();
 
-    // http://slack.net/~ant/old/gb-tests/
-
-    //    blarggs test - serial output
-    /* if (memory[0xff02] == 0x81) { */
-    /*     char c = memory[0xff01]; */
-    /*     printf("%c", c); */
-    /*     memory[0xff02] = 0x0; */
-    /* } */
-
     exit(0);
 }
 
-// IDEA: implement built in debugger
 // IDEA: make smallest possible version of the emulator ?

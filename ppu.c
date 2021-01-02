@@ -335,10 +335,6 @@ static void render_sprites() {
 
 static void render_tiles() {
 
-#ifdef DEBUGPPU
-    printf("RENDERING TILES\n");
-#endif
-
 
     /* From the pandocs:
 
@@ -453,10 +449,6 @@ static void render_tiles() {
         pixels_drawn+=tile_pixels_drawn;
              
     }
-
-#ifdef DEBUGPPU
-    printf("Pixels Drawn: %d\n", pixels_drawn);
-#endif
 
 }
 

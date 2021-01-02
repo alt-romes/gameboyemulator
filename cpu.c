@@ -131,16 +131,16 @@ static void clear_flag(unsigned char flag) {
 /*---- CPU Utils ----------------*/
 
 static unsigned char read8bit_operand() {
-#ifdef DEBUGCPU
-    printf("8-bit read: %d\n", memory[registers.pc]);
-#endif
+    if (debugger)
+        printf("8-bit read: %d\n", memory[registers.pc]);
+
     return memory[registers.pc++];
 }
 
 static char read8bit_signed_operand() {
-#ifdef DEBUGCPU
-    printf("signed 8-bit read: %d\n", (char) memory[registers.pc]);
-#endif
+    if (debugger)
+        printf("signed 8-bit read: %d\n", (char) memory[registers.pc]);
+
     return (char) memory[registers.pc++];
 }
 
@@ -152,9 +152,9 @@ static unsigned short read16bit_operand() {
     unsigned short operand = 0 | operand_high;
     operand = (operand << 8) | operand_low;
 
-#ifdef DEBUGCPU
-    printf("16-bit read: %d\n", operand);
-#endif
+    if (debugger)
+        printf("16-bit read: %d\n", operand);
+
     return operand;
 }
 
@@ -304,9 +304,9 @@ static void add8bit(unsigned char* s) {
     else clear_flag(FLAG_CY);
 }
 
-static void add8bit_from_mem(unsigned char* reg_with_pointer) {
+static void add8bit_from_mem() {
 
-    add8bit(&memory[*reg_with_pointer]);
+    add8bit(&memory[registers.hl]);
 }
 
 static void sub(unsigned char* reg) {
@@ -776,7 +776,7 @@ const struct instruction instructions[256] = {
 	{ "ADD A, E", add8bit, &registers.e},                     // 0x83
 	{ "ADD A, H", add8bit, &registers.h},                     // 0x84
 	{ "ADD A, L", add8bit, &registers.l},                     // 0x85
-	{ "ADD A, (HL)", add8bit_from_mem, &registers.hl},                  // 0x86
+	{ "ADD A, (HL)", add8bit_from_mem},                  // 0x86
 	{ "ADD A", add8bit, &registers.a},                        // 0x87
 	{ "ADC B", adc, &registers.b},                        // 0x88
 	{ "ADC C", adc, &registers.c},                        // 0x89
@@ -1280,15 +1280,14 @@ static int execute() {
 
     if (instruction.execute) {
 
-#ifdef DEBUGCPU
-        printf("%s -> 0x%x\n", instruction.disassembly, opcode);
-#endif
+        if (debugger)
+            printf("%s -> 0x%x\n", instruction.disassembly, opcode);
+
         instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
 
-#ifdef DEBUGCPU
-        debug();
-#endif
-
+        if (debugger)
+            debug();
+        
     } else {
 
         printf("Operation not defined: %s -> 0x%x\n", instruction.disassembly, opcode);
