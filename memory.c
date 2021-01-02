@@ -71,7 +71,9 @@ union address_space {
                 unsigned char obj_pallete_1_data[1]; // pallete 1 for sprites ($FF49)
                 unsigned char lcd_windowy[1]; // window y location in relation to scroll (viewport) ($FF4A)
                 unsigned char lcd_windowx[1]; // window x location in relation to scroll (viewport) ($FF4B)
-                unsigned char padding__[0x34];
+                unsigned char padding__[0x4]; // $FF4C - $FF4F
+                unsigned char disabled_bootrom[1]; // $FF50
+                unsigned char padding___[0x2F];
             };
             unsigned char ioports[0x80]; // IO Ports ($FF00)
         };
@@ -98,11 +100,12 @@ unsigned char* lcd_windowy = address_space.lcd_windowy;
 unsigned char* lcd_windowx = address_space.lcd_windowx;
 unsigned char* lcd_bgp = address_space.lcd_bgp;
 unsigned char* rombanks = address_space.rombanks;
+unsigned char* disabled_bootrom = address_space.disabled_bootrom;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
 
-unsigned char cartridge_loaded = 0;
+unsigned char cartridge_loaded = 0; // 0 if cartridge isn't loaded, 1 if it's partially loaded (all except first 256 bytes), 2 if it's fully loaded
 
 static void load_bootstrap_rom() {
 
@@ -139,3 +142,12 @@ void load_tests() {
     fclose(test);
 }
 
+void check_disable_bootrom() {
+
+    if (cartridge_loaded == 1 && *disabled_bootrom) {
+
+        cartridge_loaded++;
+        memcpy(memory, rom, 256);
+    }
+
+}

@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-//#define USE_GRAPHICS
-
 unsigned long debugger = 0;
 
 #include "memory.c"
@@ -69,6 +67,8 @@ void update() {
         cycles_this_frame += cycles;
     }
 
+    // TODO: Track time spent in this frame, and sleep the rest until 1/60
+
     render_frame();
 
     emulation_time += cycles_this_frame;
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
     run_tests();
 
-    insert_cartridge("zelda.gb");
+    insert_cartridge("tetris-jp.gb");
 
     load_roms();
 

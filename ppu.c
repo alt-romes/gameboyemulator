@@ -12,7 +12,7 @@
  * > OpenGL Textures
  * https://learnopengl.com/Getting-started/Textures
  */
-#ifdef USE_GRAPHICS
+#ifdef __APPLE__
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -141,7 +141,7 @@ const int SCREEN_HEIGHT = 144;
 
 static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
 
-#ifdef USE_GRAPHICS
+#ifdef __APPLE__
 GLFWwindow* window;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -153,7 +153,7 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 #endif
 
 static void init_gui() {
-#ifdef USE_GRAPHICS
+#ifdef __APPLE__
     /* Initialize the library */
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -296,7 +296,7 @@ static void init_gui() {
 
 
 static void render_frame() {
-#ifdef USE_GRAPHICS
+#ifdef __APPLE__
     if(!glfwWindowShouldClose(window)) {
 
         /* processInput(window); ?? */ 

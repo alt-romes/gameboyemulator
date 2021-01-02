@@ -1268,9 +1268,12 @@ static void process_interrupts() {
 
            test_mask <<= 1;
 
-       }
+       }  
 
     }
+
+    check_disable_bootrom();
+
 }
 
 
