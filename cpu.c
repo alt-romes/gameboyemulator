@@ -220,14 +220,6 @@ static void load8bit_from_io_mem_operand(unsigned char* destination) {
     load8bit(destination, &ioports[operand]);
 }
 
-static void load8bit_dec_to_mem(unsigned short * reg_with_pointer) {
-
-    load8bit(&memory[*reg_with_pointer], &registers.a);
-
-    (*reg_with_pointer)--;
-}
-
-
 static void load8bit_to_io_mem(unsigned char* offsetreg, unsigned char* source) {
 
     load8bit(&ioports[*offsetreg], source);
@@ -252,6 +244,11 @@ static void load8bit_inc_from_mem() {
 	load8bit(&registers.a, &memory[registers.hl]);
 
 	registers.hl++;
+}
+
+static void load8bit_dec_to_mem() {
+
+    load8bit(&memory[registers.hl--], &registers.a);
 }
 
 
@@ -448,24 +445,20 @@ static void dec16bit(unsigned short* reg) {
 static void rl_op(unsigned char* reg) {
 
     // check if carry is set
-    unsigned char hadcarry = 0;
-	if (registers.f & FLAG_CY) hadcarry++;
+    unsigned char hadcarry = (registers.f & FLAG_CY) >> 4;
 
     // check highest bit from reg to check if carry should be set
     if ((*reg >> 7) & 1) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
-    // rotate
+    // rotate and add carry
     *reg <<= 1;
-
-    // if had carry, set it to the lowest bit
-    if (hadcarry) *reg |= 1;
+    *reg |= hadcarry;
 
     if (*reg == 0) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
 
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
+    clear_flag(FLAG_N | FLAG_H);
 }
 
 static void rla_op() {
@@ -499,8 +492,8 @@ static void bit_op(void* n, unsigned char * reg) {
 
     unsigned char n_byte = (unsigned char) n;
 
-    if ( *reg & (1 << n_byte) ) set_flag(FLAG_Z);
-    else clear_flag(FLAG_Z);
+    if ( (*reg >> n_byte ) & 1 ) clear_flag(FLAG_Z);
+    else set_flag(FLAG_Z);
 
     clear_flag(FLAG_N);
     set_flag(FLAG_H);
@@ -538,7 +531,10 @@ static void jump_add_operand() {
     registers.pc += read8bit_signed_operand();
 }
 
+//TODO: general jump condition? 
+
 // Sets program counter to operand on condition
+// Jump_cond is 0 if should jump if flag == 0, and is a value > 0 if should jump if flag is not zero
 static void jump_condition_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
@@ -552,6 +548,7 @@ static void jump_condition_operand(void* flag, void* jump_cond) {
 }
 
 // Adds operand to the current program counter on condition
+// jump_cond is 0 if condition is NOT FLAG, jump_cond is 1 if condition is FLAG
 static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
     unsigned char flagb = (unsigned char) flag;
@@ -560,8 +557,9 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
     char operand = read8bit_signed_operand();
 
     unsigned char flag_status = (flagb & registers.f);
-    if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
+    if ( (flag_status > 0 && jump_condb > 0 ) || ((flag_status) == 0 && jump_condb == 0) ) {
         registers.pc += operand;
+    }
 }
 
 
@@ -677,7 +675,7 @@ const struct instruction instructions[256] = {
 	{ "DEC E", dec8bit, &registers.e},                        // 0x1d
 	{ "LD E, 0x%02X", load8bit_operand, &registers.e},                 // 0x1e
 	{ "RRA", NULL},                          // 0x1f
-	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, 0 },                // 0x20
+	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
 	{ "LDI (HL), A", load8bit_inc_to_mem},                  // 0x22
 	{ "INC HL", inc16bit, &registers.hl},                       // 0x23
@@ -693,9 +691,9 @@ const struct instruction instructions[256] = {
 	{ "DEC L", dec8bit, &registers.l},                        // 0x2d
 	{ "LD L, 0x%02X", load8bit_operand, &registers.d},                 // 0x2e
 	{ "CPL", NULL},                          // 0x2f
-	{ "JR NC, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, 0},                // 0x30
+	{ "JR NC, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 0},                // 0x30
 	{ "LD SP, 0x%04X", load16bit_operand, &registers.sp},             // 0x31
-	{ "LDD (HL), A", load8bit_dec_to_mem, &registers.hl},                  // 0x32
+	{ "LDD (HL), A", load8bit_dec_to_mem},                  // 0x32
 	{ "INC SP", inc16bit, &registers.sp},                       // 0x33
 	{ "INC (HL)", NULL},                     // 0x34
 	{ "DEC (HL)", NULL},                     // 0x35
@@ -1263,7 +1261,6 @@ static void process_interrupts() {
 
 
 /*---- Main Logic and Execution -----------------------------------*/
-
 
 static int execute() {
 

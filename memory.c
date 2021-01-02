@@ -13,12 +13,18 @@
  *  http://gameboy.mongenel.com/dmg/asmmemmap.html
  *
  */
+#include <string.h>
 
 // Gameboy address space (RAM + VRAM?)
 union address_space {
     struct {
-        unsigned char rombank_fixed[0x4000]; // 16k for ROM Bank 0
-        unsigned char rombank_switchable[0x4000]; // 16k for Switchable ROM Bank (1..N)
+        union {
+            struct {
+                unsigned char rombank_fixed[0x4000]; // 16k for ROM Bank 0
+                unsigned char rombank_switchable[0x4000]; // 16k for Switchable ROM Bank (1..N)
+            };
+            unsigned char rombanks[0x8000];
+        };
         unsigned char vram[0x2000]; // 8K for VRAM
         unsigned char external_ram[0x2000]; // 8K for External Switchable RAM in Cartridge
         unsigned char ram[0x2000]; // 8K for Internal Work RAM
@@ -91,29 +97,38 @@ unsigned char* lcd_scx = address_space.lcd_scx;
 unsigned char* lcd_windowy = address_space.lcd_windowy;
 unsigned char* lcd_windowx = address_space.lcd_windowx;
 unsigned char* lcd_bgp = address_space.lcd_bgp;
+unsigned char* rombanks = address_space.rombanks;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
 
-// Gameboy bootstrap read only memory (hardcoded bootstrap)
-unsigned char bootrom[256];
+unsigned char cartridge_loaded = 0;
 
-
-void load_bootstrap_rom() {
+static void load_bootstrap_rom() {
 
     FILE* bootstrap = fopen("bootstrap_rom", "rb");
     fread(memory, sizeof(unsigned char), 256, bootstrap);
 
     fclose(bootstrap);
-
 }
 
-void load_cartridge(char* filename) {
+void insert_cartridge(char* filename) {
 
     FILE* cartridge = fopen(filename, "rb");
-    fread(memory+256, sizeof(unsigned char), 0x3F00, cartridge);
+    fread(rom, sizeof(unsigned char), 0x200000, cartridge);
 
     fclose(cartridge);
+
+    cartridge_loaded = 1;
+}
+
+void load_roms() {
+    load_bootstrap_rom();
+
+    if (!cartridge_loaded)
+        memset(rom, 0xff, 0x200000);
+
+    memcpy(memory+256, rom+256, 0x8000-256);
 }
 
 void load_tests() {

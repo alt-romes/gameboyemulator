@@ -24,6 +24,9 @@ const int FRAME_MAX_CYCLES = 69905; /*
 
 unsigned long emulation_time = 0;   /* time is in cycles */
 
+unsigned long debugger = 0;
+
+unsigned int debugger_offset = 0;
 
 
 /*
@@ -40,17 +43,42 @@ void update() {
     while (cycles_this_frame < FRAME_MAX_CYCLES) {
 
 #ifdef DEBUGEMU
-        printf("Instruction Number: %d\n", i);
+        printf("Instruction Number: %d\n", registers.pc);
 #endif
 
+
+
+
         int cycles = cpu();
+
+        if (debugger && (!debugger_offset || !(debugger_offset--))) {
+
+            char c = getchar();
+            if (c == 'n')
+                debugger_offset = 10;
+            if (c == 'b')
+                debugger_offset = 100;
+            if (c == 'm')
+                debugger_offset = 1000;
+
+            if (debugger++ % 2) printf("\e[1;1H\e[2J\n");
+        }
+
 
         ppu(cycles); /* The Pixel Processing Unit receives the 
                       * the amount of cycles run by the processor
                       * in order to keep it in sync with the processor.
                       */
 
+
+
+
+
+
+
         // TODO: Receive inputs/request interrupts?
+
+
 
 
         cycles_this_frame += cycles;
@@ -72,7 +100,7 @@ void emulate() {
         update();
 
 #ifdef DEBUGEMU
-        printf("current time: %d\n\n", emulation_time);
+        printf("current time: %lu\n\n", emulation_time);
 #endif
         sleep(1/60);    /* update runs 60 times per second */
     }
@@ -89,11 +117,20 @@ void run_tests();
 
 int main(int argc, char *argv[])
 {    
+
+    if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {
+
+        debugger++;
+        printf("\e[1;1H\e[2J\n");
+    }
+
+
+
     run_tests();
 
-    load_bootstrap_rom();
+    insert_cartridge("tetris-jp.gb");
 
-    load_cartridge("tetris-jp.gb");
+    load_roms();
 
     boot();
 

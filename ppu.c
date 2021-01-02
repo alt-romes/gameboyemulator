@@ -290,7 +290,7 @@ static void init_gui() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glClearColor(1, 1, 1, 1);
+    glClearColor(0, 0, 0, 1);
 #endif
 }
 
@@ -328,8 +328,6 @@ static void render_frame() {
 
 
 
-
-
 static void render_sprites() {
 
     // TODO
@@ -340,6 +338,7 @@ static void render_tiles() {
 #ifdef DEBUGPPU
     printf("RENDERING TILES\n");
 #endif
+
 
     /* From the pandocs:
 

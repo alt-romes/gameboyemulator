@@ -6,3 +6,6 @@ clean:
 
 run:
 	./emulator
+
+debug:
+	./emulator -d
