@@ -266,6 +266,7 @@ static void load8bit_dec_to_mem() {
 
 
 
+
 /*---- 16-Bit Loads -------------*/
 
 static void load16bit(unsigned short * destination, unsigned short *source) {
@@ -292,7 +293,15 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
     *hi_reg = memory[registers.sp++];
 }
 
+static void load16bit_sp_operand_offset() {
 
+  unsigned short operand_plus_sp = read8bit_signed_operand() + registers.sp;
+
+  load16bit(&registers.hl, &memory[operand_plus_sp]);
+
+   //TODO: calculate FLAG_H FLAG_CY
+  clear_flag(FLAG_Z | FLAG_N);
+}
 
 /*---- 8-Bit ALU ----------------*/
 
@@ -1007,9 +1016,9 @@ const struct instruction instructions[256] = {
 	{ "CP A", cp_op, &registers.a},                         // 0xbf
 	{ "RET NZ", ret_condition, (void*) FLAG_Z, (void*) 0},                       // 0xc0
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
-	{ "JP NZ, 0x%04X", NULL},                // 0xc2
+	{ "JP NZ, 0x%04X", jump_condition_operand, (void*) FLAG_Z, (void*) 0},                // 0xc2
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
-	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, 0},              // 0xc4
+	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, (void*) 0},              // 0xc4
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", add8bit_operand},                // 0xc6
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
@@ -1017,23 +1026,23 @@ const struct instruction instructions[256] = {
 	{ "RET", ret_op},                          // 0xc9
 	{ "JP Z, 0x%04X", jump_condition_operand, (void*) FLAG_Z, (void*) 1},                 // 0xca
 	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
-	{ "CALL Z, 0x%04X", NULL},               // 0xcc
+	{ "CALL Z, 0x%04X", call_condition, (void*) FLAG_Z, (void*) 1},               // 0xcc
 	{ "CALL 0x%04X", call_operand},                  // 0xcd
 	{ "ADC 0x%02X", adc_operand},                   // 0xce
 	{ "RST 0x08",  rst, (void*) 0x08},                     // 0xcf
 	{ "RET NC", ret_condition, (void *) FLAG_CY, (void*) 0},                       // 0xd0
 	{ "POP DE", pop_op, &registers.d, &registers.e},                       // 0xd1
-	{ "JP NC, 0x%04X", NULL},                // 0xd2
+	{ "JP NC, 0x%04X", jump_condition_operand, (void*) FLAG_CY, (void*) 0},                // 0xd2
 	{ "UNKNOWN", NULL},                      // 0xd3
-	{ "CALL NC, 0x%04X", NULL},              // 0xd4
+	{ "CALL NC, 0x%04X", call_condition, (void*) FLAG_CY, (void*) 0},              // 0xd4
 	{ "PUSH DE", push_op, &registers.d, &registers.e},                      // 0xd5
 	{ "SUB 0x%02X", sub_operand},                   // 0xd6
 	{ "RST 0x10",  rst, (void*) 0x10},                     // 0xd7
 	{ "RET C", ret_condition, (void *) FLAG_CY, (void*) 1},                        // 0xd8
 	{ "RETI", ret_interrupt},                         // 0xd9
-	{ "JP C, 0x%04X", NULL},                 // 0xda
+	{ "JP C, 0x%04X", jump_condition_operand, (void*) FLAG_CY, (void*) 1},                 // 0xda
 	{ "UNKNOWN", NULL},                      // 0xdb
-	{ "CALL C, 0x%04X", NULL},               // 0xdc
+	{ "CALL C, 0x%04X", call_condition, (void*) FLAG_CY, (void*) 1},               // 0xdc
 	{ "UNKNOWN", NULL},                      // 0xdd
 	{ "SBC 0x%02X", NULL},                   // 0xde
 	{ "RST 0x18",  rst, (void*) 0x18},                     // 0xdf
