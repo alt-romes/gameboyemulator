@@ -524,6 +524,13 @@ static void complement(){
 
 }
 
+static void swap (unsigned char* reg) {
+
+    unsigned char new_lo = *reg >> 4;
+    unsigned char new_hi = *reg << 4;
+    *reg = (((0x00) | new_lo) | new_hi);
+}
+
 
 /*---- Rotates & Shifts ---------*/
 
@@ -1056,14 +1063,14 @@ const struct instruction instructions_cb[256] = {
 	{ "SRA L", NULL},           // 0x2d
 	{ "SRA (HL)", NULL},      // 0x2e
 	{ "SRA A", NULL},           // 0x2f
-	{ "SWAP B", NULL},         // 0x30
-	{ "SWAP C", NULL},         // 0x31
-	{ "SWAP D", NULL},         // 0x32
-	{ "SWAP E", NULL},         // 0x33
-	{ "SWAP H", NULL},         // 0x34
-	{ "SWAP L", NULL},         // 0x35
+	{ "SWAP B", swap, &registers.b},         // 0x30
+	{ "SWAP C", swap, &registers.c},         // 0x31
+	{ "SWAP D", swap, &registers.d},         // 0x32
+	{ "SWAP E", swap, &registers.e},         // 0x33
+	{ "SWAP H", swap, &registers.h},         // 0x34
+	{ "SWAP L", swap, &registers.l},         // 0x35
 	{ "SWAP (HL)", NULL},    // 0x36
-	{ "SWAP A", NULL},         // 0x37
+	{ "SWAP A", swap, &registers.a},         // 0x37
 	{ "SRL B", NULL},           // 0x38
 	{ "SRL C", NULL},           // 0x39
 	{ "SRL D", NULL},           // 0x3a
