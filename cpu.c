@@ -219,9 +219,16 @@ static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_wi
     load8bit(destination, &memory[*reg_with_pointer]);
 }
 
+static void load8bit_from_mem_operand(unsigned char * destination) {
+
+    unsigned short address = read16bit_operand();
+    load8bit(destination,&memory[address]);
+
+}
+
 static void load8bit_from_io_mem_operand(unsigned char* destination) {
 
-    unsigned short operand = read8bit_operand();
+    unsigned char operand = read8bit_operand();
 
     load8bit(destination, &ioports[operand]);
 }
@@ -362,6 +369,13 @@ static void and_reg(unsigned char* reg) {
 
     clear_flag(FLAG_N | FLAG_CY);
     set_flag(FLAG_H);
+}
+
+static void and_operand (){
+
+    unsigned char operand = read8bit_operand();
+    and_reg(&operand);
+    
 }
 
 static void or_reg(unsigned char* reg) {
@@ -561,7 +575,7 @@ static void jump_add_operand() {
     registers.pc += read8bit_signed_operand();
 }
 
-//TODO: general jump condition? 
+//TODO: general jump condition?
 
 // Sets program counter to operand on condition
 // Jump_cond is 0 if should jump if flag == 0, and is a value > 0 if should jump if flag is not zero
@@ -915,7 +929,7 @@ const struct instruction instructions[256] = {
 	{ "UNKNOWN", NULL},                      // 0xe3
 	{ "UNKNOWN", NULL},                      // 0xe4
 	{ "PUSH HL", push_op, &registers.h, &registers.l},                      // 0xe5
-	{ "AND 0x%02X", NULL},                   // 0xe6
+	{ "AND 0x%02X", and_operand},                   // 0xe6
 	{ "RST 0x20",  rst, (void*) 0x20},                     // 0xe7
 	{ "ADD SP,0x%02X", NULL},                // 0xe8
 	{ "JP HL", jump,&registers.hl},                        // 0xe9
@@ -935,7 +949,7 @@ const struct instruction instructions[256] = {
 	{ "RST 0x30",  rst, (void*) 0x30},                     // 0xf7
 	{ "LD HL, SP+0x%02X", NULL},             // 0xf8
 	{ "LD SP, HL", load16bit, &registers.sp, &registers.hl},                    // 0xf9
-	{ "LD A, (0x%04X)", NULL},               // 0xfa
+	{ "LD A, (0x%04X)", load8bit_from_mem_operand, &registers.a},               // 0xfa
 	{ "EI", enable_interrupts},                           // 0xfb
 	{ "UNKNOWN", NULL},                      // 0xfc
 	{ "UNKNOWN", NULL},                      // 0xfd
@@ -1293,7 +1307,7 @@ static void process_interrupts() {
 
            test_mask <<= 1;
 
-       }  
+       }
 
     }
 
@@ -1333,7 +1347,7 @@ static int execute() {
 
         if (debugger)
             debug();
-        
+
     } else {
 
         printf("Operation not defined: %s -> 0x%x\n", instruction.disassembly, opcode);
