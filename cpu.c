@@ -936,7 +936,7 @@ const struct instruction instructions[256] = {
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
 	{ "RET Z", ret_condition, (void *) FLAG_Z, (void*) 1},                        // 0xc8
 	{ "RET", ret_op},                          // 0xc9
-	{ "JP Z, 0x%04X", NULL},                 // 0xca
+	{ "JP Z, 0x%04X", jump_condition_operand, (void*) FLAG_Z, (void*) 1},                 // 0xca
 	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
 	{ "CALL Z, 0x%04X", NULL},               // 0xcc
 	{ "CALL 0x%04X", call_operand},                  // 0xcd
