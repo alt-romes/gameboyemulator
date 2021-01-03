@@ -351,6 +351,19 @@ static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
     xor_reg(&memory[*reg_with_pointer]);
 }
 
+static void and_reg(unsigned char* reg) {
+
+    registers.a &= *reg;
+
+    if (registers.a == 0)
+        set_flag(FLAG_Z);
+    else
+        clear_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_CY);
+    set_flag(FLAG_H);
+}
+
 static void or_reg(unsigned char* reg) {
 
     registers.a |= *reg;
@@ -614,6 +627,18 @@ static void ret_op() {
     registers.pchi = memory[registers.sp++];
 }
 
+// jump_cond is 0 if condition is NOT FLAG, jump_cond is 1 if condition is FLAG
+static void ret_condition(void* flag, void* jump_cond) {
+
+    unsigned char flagb = (unsigned char) flag;
+    unsigned char jump_condb = (unsigned char) jump_cond;
+
+    unsigned char flag_status = (flagb & registers.f);
+    if ( (flag_status > 0 && jump_condb > 0 ) || ((flag_status) == 0 && jump_condb == 0) ) {
+        ret_op();
+    }
+}
+
 
 
 /*---- Miscellaneous ------------*/
@@ -820,14 +845,14 @@ const struct instruction instructions[256] = {
 	{ "SBC L", NULL},                        // 0x9d
 	{ "SBC (HL)", NULL},                     // 0x9e
 	{ "SBC A", NULL},                        // 0x9f
-	{ "AND B", NULL},                        // 0xa0
-	{ "AND C", NULL},                        // 0xa1
-	{ "AND D", NULL},                        // 0xa2
-	{ "AND E", NULL},                        // 0xa3
-	{ "AND H", NULL},                        // 0xa4
-	{ "AND L", NULL},                        // 0xa5
+	{ "AND B", and_reg, &registers.b},                        // 0xa0
+	{ "AND C", and_reg, &registers.c},                        // 0xa1
+	{ "AND D", and_reg, &registers.d},                        // 0xa2
+	{ "AND E", and_reg, &registers.e},                        // 0xa3
+	{ "AND H", and_reg, &registers.h},                        // 0xa4
+	{ "AND L", and_reg, &registers.l},                        // 0xa5
 	{ "AND (HL)", NULL},                     // 0xa6
-	{ "AND A", NULL},                        // 0xa7
+	{ "AND A", and_reg, &registers.a},                        // 0xa7
 	{ "XOR B", xor_reg, &registers.b},                        // 0xa8
 	{ "XOR C", xor_reg, &registers.c},                        // 0xa9
 	{ "XOR D", xor_reg, &registers.d},                        // 0xaa
@@ -852,7 +877,7 @@ const struct instruction instructions[256] = {
 	{ "CP L", cp_op, &registers.l},                         // 0xbd
 	{ "CP (HL)", cp_mem, &registers.hl},                      // 0xbe
 	{ "CP A", cp_op, &registers.a},                         // 0xbf
-	{ "RET NZ", NULL},                       // 0xc0
+	{ "RET NZ", ret_condition, (void*) FLAG_Z, (void*) 0},                       // 0xc0
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
