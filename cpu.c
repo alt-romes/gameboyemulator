@@ -396,6 +396,11 @@ static void and_operand (){
 
 }
 
+static void and_from_mem(){
+
+    and_reg(&memory[registers.hl]);
+}
+
 static void or_reg(unsigned char* reg) {
 
     registers.a |= *reg;
@@ -406,6 +411,18 @@ static void or_reg(unsigned char* reg) {
         clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N | FLAG_H | FLAG_CY);
+}
+
+static void or_from_mem(){
+
+    or_reg(&memory[registers.hl]);
+}
+
+static void or_operand (){
+
+    unsigned char operand = read8bit_operand();
+    or_reg(&operand);
+
 }
 
 static void inc8bit(unsigned char* reg) {
@@ -962,7 +979,7 @@ const struct instruction instructions[256] = {
 	{ "AND E", and_reg, &registers.e},                        // 0xa3
 	{ "AND H", and_reg, &registers.h},                        // 0xa4
 	{ "AND L", and_reg, &registers.l},                        // 0xa5
-	{ "AND (HL)", NULL},                     // 0xa6
+	{ "AND (HL)", and_from_mem},                     // 0xa6
 	{ "AND A", and_reg, &registers.a},                        // 0xa7
 	{ "XOR B", xor_reg, &registers.b},                        // 0xa8
 	{ "XOR C", xor_reg, &registers.c},                        // 0xa9
@@ -978,7 +995,7 @@ const struct instruction instructions[256] = {
 	{ "OR E", or_reg, &registers.e},                         // 0xb3
 	{ "OR H", or_reg, &registers.h},                         // 0xb4
 	{ "OR L", or_reg, &registers.l},                         // 0xb5
-	{ "OR (HL)", NULL},                      // 0xb6
+	{ "OR (HL)", or_from_mem},                      // 0xb6
 	{ "OR A", or_reg, &registers.a},                         // 0xb7
 	{ "CP B", cp_op, &registers.b},                         // 0xb8
 	{ "CP C", cp_op, &registers.c},                         // 0xb9
@@ -1042,7 +1059,7 @@ const struct instruction instructions[256] = {
 	{ "DI", disable_interrupts},                           // 0xf3
 	{ "UNKNOWN", NULL},                      // 0xf4
 	{ "PUSH AF", push_op, &registers.a, &registers.f},                      // 0xf5
-	{ "OR 0x%02X", NULL},                    // 0xf6
+	{ "OR 0x%02X", or_operand},                    // 0xf6
 	{ "RST 0x30",  rst, (void*) 0x30},                     // 0xf7
 	{ "LD HL, SP+0x%02X", NULL},             // 0xf8
 	{ "LD SP, HL", load16bit, &registers.sp, &registers.hl},                    // 0xf9
