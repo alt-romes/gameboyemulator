@@ -404,6 +404,11 @@ static void inc8bit(unsigned char* reg) {
 
 }
 
+static void inc8bit_from_mem() {
+
+    inc8bit(&memory[registers.hl]);
+}
+
 static void dec8bit(unsigned char* reg) {
 
 	if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
@@ -416,6 +421,11 @@ static void dec8bit(unsigned char* reg) {
 
 	set_flag(FLAG_N);
 
+}
+
+static void dec8bit_from_mem(){
+
+  dec8bit(&memory[registers.hl]);
 }
 
 static void cp_op(unsigned char* reg) {
@@ -481,6 +491,7 @@ static void dec16bit(unsigned short* reg) {
 
     (*reg)--;
 }
+
 
 
 
@@ -757,8 +768,8 @@ const struct instruction instructions[256] = {
 	{ "LD SP, 0x%04X", load16bit_operand, &registers.sp},             // 0x31
 	{ "LDD (HL), A", load8bit_dec_to_mem},                  // 0x32
 	{ "INC SP", inc16bit, &registers.sp},                       // 0x33
-	{ "INC (HL)", NULL},                     // 0x34
-	{ "DEC (HL)", NULL},                     // 0x35
+	{ "INC (HL)", inc8bit_from_mem},                     // 0x34
+	{ "DEC (HL)", dec8bit_from_mem},                     // 0x35
 	{ "LD (HL), 0x%02X", load8bit_to_mem_from_operand, &registers.hl},              // 0x36
 	{ "SCF", NULL},                          // 0x37
 	{ "JR C, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 1},                 // 0x38
