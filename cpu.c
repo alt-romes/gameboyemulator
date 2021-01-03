@@ -905,7 +905,7 @@ const struct instruction instructions[256] = {
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
-	{ "RET Z", NULL},                        // 0xc8
+	{ "RET Z", ret_condition, (void *) FLAG_Z, (void*) 1},                        // 0xc8
 	{ "RET", ret_op},                          // 0xc9
 	{ "JP Z, 0x%04X", NULL},                 // 0xca
 	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
