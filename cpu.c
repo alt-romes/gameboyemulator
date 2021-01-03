@@ -322,11 +322,23 @@ static void add8bit_from_mem() {
     add8bit(&memory[registers.hl]);
 }
 
+static void add8bit_operand() {
+
+    unsigned char operand = read8bit_operand();
+    add8bit(&operand);
+}
+
 static void sub(unsigned char* reg) {
 
     unsigned char complement_to_2 = ~(*reg) + 1;
     add8bit(&complement_to_2);
     set_flag(FLAG_N);
+}
+
+static void sub_operand() {
+
+    unsigned char operand = read8bit_operand();
+    sub(&operand);
 }
 
 static void adc (unsigned char* regs) {
@@ -932,7 +944,7 @@ const struct instruction instructions[256] = {
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
 	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, 0},              // 0xc4
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
-	{ "ADD A, 0x%02X", NULL},                // 0xc6
+	{ "ADD A, 0x%02X", add8bit_operand},                // 0xc6
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
 	{ "RET Z", ret_condition, (void *) FLAG_Z, (void*) 1},                        // 0xc8
 	{ "RET", ret_op},                          // 0xc9
@@ -948,7 +960,7 @@ const struct instruction instructions[256] = {
 	{ "UNKNOWN", NULL},                      // 0xd3
 	{ "CALL NC, 0x%04X", NULL},              // 0xd4
 	{ "PUSH DE", push_op, &registers.d, &registers.e},                      // 0xd5
-	{ "SUB 0x%02X", NULL},                   // 0xd6
+	{ "SUB 0x%02X", sub_operand},                   // 0xd6
 	{ "RST 0x10",  rst, (void*) 0x10},                     // 0xd7
 	{ "RET C", NULL},                        // 0xd8
 	{ "RETI", ret_interrupt},                         // 0xd9
