@@ -516,6 +516,13 @@ static void halt() {
     halted = 1;
 }
 
+static void complement(){
+
+    registers.a = ~registers.a;
+    set_flag(FLAG_N);
+    set_flag(FLAG_H);
+
+}
 
 
 /*---- Rotates & Shifts ---------*/
@@ -702,10 +709,6 @@ static void ret_interrupt(){
 
 
 
-
-
-
-
 /*---- Instructions -----------------------------------------------*/
 
 
@@ -771,7 +774,7 @@ const struct instruction instructions[256] = {
 	{ "INC L", inc8bit, &registers.l},                        // 0x2c
 	{ "DEC L", dec8bit, &registers.l},                        // 0x2d
 	{ "LD L, 0x%02X", load8bit_operand, &registers.l},                 // 0x2e
-	{ "CPL", NULL},                          // 0x2f
+	{ "CPL", complement},                          // 0x2f
 	{ "JR NC, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 0},                // 0x30
 	{ "LD SP, 0x%04X", load16bit_operand, &registers.sp},             // 0x31
 	{ "LDD (HL), A", load8bit_dec_to_mem},                  // 0x32
