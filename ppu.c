@@ -3,7 +3,7 @@
  *
  * Resources:
  *
- * > General 
+ * > General
  * https://www.youtube.com/watch?v=HyzD8pNlpwI
  *
  * > LCD
@@ -71,18 +71,18 @@ static void set_lcd_stat() {
      *      (2) 10: Searching Sprites Atts
      *      (3) 11: Transfering Data to LCD Driver
      */
-    
+
     if (!lcdc_is_enabled()) {
-        
-        scanline_cycles_left = TOTAL_SCANLINE_CYCLES; // scanline is anchored 
+
+        scanline_cycles_left = TOTAL_SCANLINE_CYCLES; // scanline is anchored
 
         *lcd_ly = 0; // current scanline is set to 0
 
         // set the LCD mode to V-Blank (1) during 'LCD Disabled'
-        change_lcd_mode(0x1); 
+        change_lcd_mode(0x1);
 
     } else {
-    
+
         /*
          * Check in which of the following modes we are:
          *      V-Blank mode
@@ -98,7 +98,7 @@ static void set_lcd_stat() {
          *
          * Update LCDC(ontrol) STAT
          */
-    
+
         unsigned char current_mode = *lcdc_stat & 0x3;
         unsigned char mode = 0;
 
@@ -113,14 +113,14 @@ static void set_lcd_stat() {
             request_interrupt(LCDSTAT_INTERRUPT);
 
         if (*lcd_ly == *lcd_lyc) {
-            
+
             *lcdc_stat |= 0x4; // Set Flag: LCDC Stat bit 2 is a flag for LY == LYC
 
             // If LCD interrupts are enabled for LY==LYC
             // (This 'interrupt enabled' is a flag in bit 6 of LCDC Stat)
             if (*lcdc_stat & 0x40)
                 request_interrupt(LCDSTAT_INTERRUPT);
-            
+
         } else
             *lcdc_stat &= ~0x4; // Clear LCDC Stat Bit 2 Flag
 
@@ -136,8 +136,8 @@ static void set_lcd_stat() {
 /*---- Rendering --------------------------------------------------*/
 
 
-const int SCREEN_WIDTH = 160;
-const int SCREEN_HEIGHT = 144;
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 144
 
 static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
 
@@ -248,7 +248,7 @@ static void init_gui() {
          1.0f,  1.0f, 0.0f,   1.0f, 0.0f,   // top right
          1.0f, -1.0f, 0.0f,   1.0f, 1.0f,   // bottom right
         -1.0f, -1.0f, 0.0f,   0.0f, 1.0f,   // bottom left
-        -1.0f,  1.0f, 0.0f,   0.0f, 0.0f    // top left 
+        -1.0f,  1.0f, 0.0f,   0.0f, 0.0f    // top left
     };
     unsigned int indices[] = {
         0, 1, 3, // first triangle
@@ -299,7 +299,7 @@ static void render_frame() {
 #ifdef __APPLE__
     if(!glfwWindowShouldClose(window)) {
 
-        /* processInput(window); ?? */ 
+        /* processInput(window); ?? */
 
         /* Render here */
 
@@ -352,9 +352,9 @@ static void render_tiles() {
         Bootstrap LCDC: 145 (10010001)
 
      */
-    
+
     unsigned char using_window = 0;
-    unsigned short tile_data_base_address;                          // location where tiles are described 
+    unsigned short tile_data_base_address;                          // location where tiles are described
     tile_data_base_address = ((*lcdc >> 4) & 1) ? 0x8000 : 0x8800;  // Test LCDC Bit 4 (if 0, the ids are signed bytes and we'll have to check it ahead)
 
     unsigned short tilemap_base_address;            // location where background (either window or actual BG)
@@ -373,7 +373,7 @@ static void render_tiles() {
 
     // Find tile row, then pixel row in tile,
     // and add the whole line of pixels to framebuffer
-    
+
     unsigned char yPos = *lcd_scy + *lcd_ly;    // Y pos in 256x256 background
     unsigned char tile_row = (char) (yPos / 8); // 8 pixels per tile
 
@@ -384,7 +384,7 @@ static void render_tiles() {
         unsigned char tile_col = (char) (xPos / 8);   // 8 pixels per tile
 
         short tile_id;
-       
+
         // Get the tile id from tilemap + offset,
         // Then get the data for that tile id
 
@@ -401,7 +401,7 @@ static void render_tiles() {
 
 
         // figure out pixel line in tile, load color data for that line
-        // get colors from pallete, mix with data to create color 
+        // get colors from pallete, mix with data to create color
         // set pixel with color in scanlinesbuffer (which will be used in create framebuffer & render)
 
         unsigned char line_byte_in_tile = (yPos % 8) * 2;   // each tile has 8 vertical lines, each line uses 2 bytes
@@ -436,7 +436,7 @@ static void render_tiles() {
         for(; hpixel_in_tile < 8 && pixels_drawn+hpixel_in_tile<160+*lcd_scx; hpixel_in_tile++) {
 
             unsigned char pixel_color = 0;
-            
+
             pixel_color |= (hi_color_bit >> (7 - hpixel_in_tile)) & 1; // 7-pixel because pixel 0 is in bit 7
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
@@ -447,7 +447,7 @@ static void render_tiles() {
         }
 
         pixels_drawn+=tile_pixels_drawn;
-             
+
     }
 
 }
@@ -477,7 +477,7 @@ void ppu(int cycles) {
 
     /* If the scanline is completely drawn according to the time passed in cycles */
     if (scanline_cycles_left <= 0) {
-        
+
         (*lcd_ly)++; /* Scanline advances, so we update the LCDC Y-Coordinate
                       * register, because it needs to hold the current scanline
                       */
@@ -485,7 +485,7 @@ void ppu(int cycles) {
         scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
         unsigned char current_scanline = *lcd_ly;
-        
+
         /* VBLANK is confirmed when LY >= 144, the resolution is 160x144,
          * but since the first scanline is 0, the scanline number 144 is actually the 145th.
          *
@@ -493,7 +493,7 @@ void ppu(int cycles) {
          * (Scanlines >= 144 and <= 153 are +invisible scanlines')
          */
         if (current_scanline == 144)
-            request_interrupt(VBLANK_INTERRUPT); 
+            request_interrupt(VBLANK_INTERRUPT);
 
         else if (current_scanline > 153) /* if scanline goes above 153, reset to 0 */
             current_scanline = 0;
@@ -502,7 +502,6 @@ void ppu(int cycles) {
             draw_scanline();
 
     }
-    
+
 
 }
-

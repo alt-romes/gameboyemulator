@@ -11,10 +11,10 @@ unsigned long debugger = 0;
 const int FRAME_MAX_CYCLES = 69905; /*
                                      *      Gameboy's CPU runs at 4.194304MHz
                                      *  which means it executes 4194304 cycles per second.
-                                     *      
+                                     *
                                      *      In each second we draw 60 frames
-                                     *  which means every frame the cpu can run 4194304/60 ~ 69905 cycles 
-                                     *  
+                                     *  which means every frame the cpu can run 4194304/60 ~ 69905 cycles
+                                     *
                                      *      We can use this to sync graphics with procressing instructions
                                      */
 
@@ -32,7 +32,7 @@ unsigned int debug_from = -1;
  *
  */
 void update() {
-    
+
     unsigned int cycles_this_frame = 0;
 
     while (cycles_this_frame < FRAME_MAX_CYCLES) {
@@ -57,7 +57,7 @@ void update() {
         }
 
 
-        ppu(cycles); /* The Pixel Processing Unit receives the 
+        ppu(cycles); /* The Pixel Processing Unit receives the
                       * the amount of cycles run by the processor
                       * in order to keep it in sync with the processor.
                       */
@@ -77,11 +77,11 @@ void update() {
 
 void emulate() {
 
-    while (emulation_time<51000000) {
+    while (1) {
 
         update();
 
-        sleep(1/60);    /* update runs 60 times per second */
+        //sleep(1/60);    /* update runs 60 times per second */
     }
 
 }
@@ -95,7 +95,7 @@ static void boot() {
 void run_tests();
 
 int main(int argc, char *argv[])
-{    
+{
 
     if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 void run_tests() {
 
     // http://slack.net/~ant/old/gb-tests/
-    
+
     load_tests();
 
     boot_tests();
