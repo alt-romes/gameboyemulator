@@ -344,13 +344,19 @@ static void sub_operand() {
 static void adc (unsigned char* regs) {
 
 	unsigned char value = *regs;
-	if(registers.f & (1<<3)) value++;
+	if(registers.f & FLAG_CY) value++;
 	add8bit(&value);
 }
 
 static void adc_from_mem(unsigned char* reg_with_pointer) {
 
     adc(&memory[*reg_with_pointer]);
+}
+
+static void adc_operand() {
+
+    unsigned char operand = read8bit_operand();
+    adc(&operand);
 }
 
 static void xor_reg(unsigned char* reg) {
@@ -575,7 +581,7 @@ static void sla_op(unsigned char* reg) {
     unsigned char left_most_bit = 0x80 & *reg;
     *reg = *reg<<1;
 
-    if(left_most_bit & 0x80)
+    if(left_most_bit)
       set_flag(FLAG_CY);
     else
       clear_flag(FLAG_CY);
@@ -585,15 +591,14 @@ static void sla_op(unsigned char* reg) {
     else
         set_flag(FLAG_Z);
 
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
+    clear_flag(FLAG_N | FLAG_H);
 }
 
 static void srl_op(unsigned char* reg) {
     unsigned char right_most_bit = 0x1 & *reg;
     *reg = *reg>>1;
 
-    if(right_most_bit & 0x1)
+    if(right_most_bit)
       set_flag(FLAG_CY);
     else
       clear_flag(FLAG_CY);
@@ -603,8 +608,35 @@ static void srl_op(unsigned char* reg) {
     else
         set_flag(FLAG_Z);
 
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void rr_op(unsigned char* reg) {
+    unsigned char right_most_bit = 0x1 & *reg;
+    unsigned char carry_flag_value = FLAG_CY & registers.f;
+    *reg = *reg>>1;
+
+    if(carry_flag_value)
+      *reg = *reg | 0x80;
+
+    if(right_most_bit)
+      set_flag(FLAG_CY);
+    else
+      clear_flag(FLAG_CY);
+
+    if(*reg)
+      clear_flag(FLAG_Z);
+    else
+      set_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void rra_op() {
+
+  rr_op(&registers.a);
+
+  clear_flag(FLAG_CY);
 }
 
 /*---- Bit Opcodes --------------*/
@@ -795,7 +827,7 @@ const struct instruction instructions[256] = {
 	{ "INC E", inc8bit, &registers.e},                        // 0x1c
 	{ "DEC E", dec8bit, &registers.e},                        // 0x1d
 	{ "LD E, 0x%02X", load8bit_operand, &registers.e},                 // 0x1e
-	{ "RRA", NULL},                          // 0x1f
+	{ "RRA", rra_op},                          // 0x1f
 	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
 	{ "LDI (HL), A", load8bit_inc_to_mem},                  // 0x22
@@ -970,9 +1002,9 @@ const struct instruction instructions[256] = {
 	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
 	{ "CALL Z, 0x%04X", NULL},               // 0xcc
 	{ "CALL 0x%04X", call_operand},                  // 0xcd
-	{ "ADC 0x%02X", NULL},                   // 0xce
+	{ "ADC 0x%02X", adc_operand},                   // 0xce
 	{ "RST 0x08",  rst, (void*) 0x08},                     // 0xcf
-	{ "RET NC", NULL},                       // 0xd0
+	{ "RET NC", ret_condition, (void *) FLAG_CY, (void*) 0},                       // 0xd0
 	{ "POP DE", pop_op, &registers.d, &registers.e},                       // 0xd1
 	{ "JP NC, 0x%04X", NULL},                // 0xd2
 	{ "UNKNOWN", NULL},                      // 0xd3
@@ -980,7 +1012,7 @@ const struct instruction instructions[256] = {
 	{ "PUSH DE", push_op, &registers.d, &registers.e},                      // 0xd5
 	{ "SUB 0x%02X", sub_operand},                   // 0xd6
 	{ "RST 0x10",  rst, (void*) 0x10},                     // 0xd7
-	{ "RET C", NULL},                        // 0xd8
+	{ "RET C", ret_condition, (void *) FLAG_CY, (void*) 1},                        // 0xd8
 	{ "RETI", ret_interrupt},                         // 0xd9
 	{ "JP C, 0x%04X", NULL},                 // 0xda
 	{ "UNKNOWN", NULL},                      // 0xdb
@@ -1069,14 +1101,14 @@ const struct instruction instructions_cb[256] = {
 	{ "RL L", rl_op, &registers.l},             // 0x15
 	{ "RL (HL)", NULL},        // 0x16
 	{ "RL A", rl_op, &registers.a},             // 0x17
-	{ "RR B", NULL},             // 0x18
-	{ "RR C", NULL},             // 0x19
-	{ "RR D", NULL},             // 0x1a
-	{ "RR E", NULL},             // 0x1b
-	{ "RR H", NULL},             // 0x1c
-	{ "RR L", NULL},             // 0x1d
+	{ "RR B", rr_op, &registers.b},             // 0x18
+	{ "RR C", rr_op, &registers.c},             // 0x19
+	{ "RR D", rr_op, &registers.d},             // 0x1a
+	{ "RR E", rr_op, &registers.e},             // 0x1b
+	{ "RR H", rr_op, &registers.h},             // 0x1c
+	{ "RR L", rr_op, &registers.l},             // 0x1d
 	{ "RR (HL)", NULL},        // 0x1e
-	{ "RR A", NULL},             // 0x1f
+	{ "RR A", rr_op, &registers.a},             // 0x1f
 	{ "SLA B", sla_op, &registers.b},           // 0x20
 	{ "SLA C", sla_op, &registers.c},           // 0x21
 	{ "SLA D", sla_op, &registers.d},           // 0x22
