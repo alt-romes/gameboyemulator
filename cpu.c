@@ -494,6 +494,29 @@ static void dec16bit(unsigned short* reg) {
 
 
 
+/*---- Miscellaneous ------------*/
+
+static void nop () {
+
+    // do nothing
+}
+
+static void disable_interrupts() {
+
+    interrupt_master_enable = 0;
+}
+
+static void enable_interrupts() {
+
+    interrupt_master_enable = 1;
+}
+
+static void halt() {
+
+    halted = 1;
+}
+
+
 
 /*---- Rotates & Shifts ---------*/
 
@@ -670,29 +693,14 @@ static void ret_condition(void* flag, void* ret_cond) {
 
 }
 
-
-
-/*---- Miscellaneous ------------*/
-
-static void nop () {
-
-    // do nothing
+static void ret_interrupt(){
+    ret_op();
+    enable_interrupts();
 }
 
-static void disable_interrupts() {
 
-    interrupt_master_enable = 0;
-}
 
-static void enable_interrupts() {
 
-    interrupt_master_enable = 1;
-}
-
-static void halt() {
-
-    halted = 1;
-}
 
 
 
@@ -933,7 +941,7 @@ const struct instruction instructions[256] = {
 	{ "SUB 0x%02X", NULL},                   // 0xd6
 	{ "RST 0x10",  rst, (void*) 0x10},                     // 0xd7
 	{ "RET C", NULL},                        // 0xd8
-	{ "RETI", NULL},                         // 0xd9
+	{ "RETI", ret_interrupt},                         // 0xd9
 	{ "JP C, 0x%04X", NULL},                 // 0xda
 	{ "UNKNOWN", NULL},                      // 0xdb
 	{ "CALL C, 0x%04X", NULL},               // 0xdc
