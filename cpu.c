@@ -589,6 +589,24 @@ static void sla_op(unsigned char* reg) {
     clear_flag(FLAG_H);
 }
 
+static void srl_op(unsigned char* reg) {
+    unsigned char right_most_bit = 0x1 & *reg;
+    *reg = *reg>>1;
+
+    if(right_most_bit & 0x1)
+      set_flag(FLAG_CY);
+    else
+      clear_flag(FLAG_CY);
+
+    if(*reg)
+        clear_flag(FLAG_Z);
+    else
+        set_flag(FLAG_Z);
+
+    clear_flag(FLAG_N);
+    clear_flag(FLAG_H);
+}
+
 /*---- Bit Opcodes --------------*/
 
 // Tests bit of a register
@@ -1066,7 +1084,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SLA H", sla_op, &registers.h},           // 0x24
 	{ "SLA L", sla_op, &registers.l},           // 0x25
 	{ "SLA (HL)", NULL},      // 0x26
-	{ "SLA A",sla_op, &registers.a},           // 0x27
+	{ "SLA A", sla_op, &registers.a},           // 0x27
 	{ "SRA B", NULL},           // 0x28
 	{ "SRA C", NULL},           // 0x29
 	{ "SRA D", NULL},           // 0x2a
@@ -1083,14 +1101,14 @@ const struct instruction instructions_cb[256] = {
 	{ "SWAP L", swap, &registers.l},         // 0x35
 	{ "SWAP (HL)", NULL},    // 0x36
 	{ "SWAP A", swap, &registers.a},         // 0x37
-	{ "SRL B", NULL},           // 0x38
-	{ "SRL C", NULL},           // 0x39
-	{ "SRL D", NULL},           // 0x3a
-	{ "SRL E", NULL},           // 0x3b
-	{ "SRL H", NULL},           // 0x3c
-	{ "SRL L", NULL},           // 0x3d
+	{ "SRL B", srl_op, &registers.b},           // 0x38
+	{ "SRL C", srl_op, &registers.c},           // 0x39
+	{ "SRL D", srl_op, &registers.d},           // 0x3a
+	{ "SRL E", srl_op, &registers.e},           // 0x3b
+	{ "SRL H", srl_op, &registers.h},           // 0x3c
+	{ "SRL L", srl_op, &registers.l},           // 0x3d
 	{ "SRL (HL)", NULL},      // 0x3e
-	{ "SRL A", NULL},           // 0x3f
+	{ "SRL A", srl_op, &registers.a},           // 0x3f
 	{ "BIT 0, B", NULL},      // 0x40
 	{ "BIT 0, C", NULL},      // 0x41
 	{ "BIT 0, D", NULL},      // 0x42
