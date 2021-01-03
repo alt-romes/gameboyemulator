@@ -581,29 +581,25 @@ static void jump_add_operand() {
 // Jump_cond is 0 if should jump if flag == 0, and is a value > 0 if should jump if flag is not zero
 static void jump_condition_operand(void* flag, void* jump_cond) {
 
-    unsigned char flagb = (unsigned char) flag;
-    unsigned char jump_condb = (unsigned char) jump_cond;
+    unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
 
     unsigned short operand = read16bit_operand();
 
-    unsigned char flag_status = (flagb & registers.f);
-    if ( (flag_status > 0 && jump_condb != 0 ) || ((flag_status) == 0 && jump_condb == 0) )
+    if (flag_value == (unsigned char) jump_cond)
         registers.pc = operand;
+
 }
 
 // Adds operand to the current program counter on condition
 // jump_cond is 0 if condition is NOT FLAG, jump_cond is 1 if condition is FLAG
 static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
-    unsigned char flagb = (unsigned char) flag;
-    unsigned char jump_condb = (unsigned char) jump_cond;
+    unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
 
     char operand = read8bit_signed_operand();
 
-    unsigned char flag_status = (flagb & registers.f);
-    if ( (flag_status > 0 && jump_condb > 0 ) || ((flag_status) == 0 && jump_condb == 0) ) {
+    if (flag_value == (unsigned char) jump_cond)
         registers.pc += operand;
-    }
 }
 
 
@@ -654,15 +650,13 @@ static void ret_op() {
 }
 
 // jump_cond is 0 if condition is NOT FLAG, jump_cond is 1 if condition is FLAG
-static void ret_condition(void* flag, void* jump_cond) {
+static void ret_condition(void* flag, void* ret_cond) {
 
-    unsigned char flagb = (unsigned char) flag;
-    unsigned char jump_condb = (unsigned char) jump_cond;
+    unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
 
-    unsigned char flag_status = (flagb & registers.f);
-    if ( (flag_status > 0 && jump_condb > 0 ) || ((flag_status) == 0 && jump_condb == 0) ) {
+    if (flag_value == (unsigned char) ret_cond)
         ret_op();
-    }
+
 }
 
 
