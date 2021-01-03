@@ -375,7 +375,7 @@ static void and_operand (){
 
     unsigned char operand = read8bit_operand();
     and_reg(&operand);
-    
+
 }
 
 static void or_reg(unsigned char* reg) {
@@ -628,10 +628,22 @@ static void call_operand() {
 
 static void rst(void* address){
 
-  call((unsigned short) address);
+    call((unsigned short) address);
 
 }
 
+// call_cond is 0 if condition is NOT FLAG, call_cond is 1 if condition is FLAG
+// ex: call nz 123
+
+static void call_condition(void* flag, void* call_cond) {
+
+    unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
+    unsigned short operand = read16bit_operand();
+
+    if (flag_value == (unsigned char) call_cond)
+        call(operand);
+
+}
 
 /*---- Returns ------------------*/
 
@@ -895,7 +907,7 @@ const struct instruction instructions[256] = {
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
 	{ "JP NZ, 0x%04X", NULL},                // 0xc2
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
-	{ "CALL NZ, 0x%04X", NULL},              // 0xc4
+	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, 0},              // 0xc4
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", NULL},                // 0xc6
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
