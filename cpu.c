@@ -99,6 +99,8 @@ static unsigned char interrupt_master_enable = 0;   /*Interrupt Master Enable Fl
 
 static unsigned char halted = 0;    /* If halted = 1, CPU is idle and waiting for interrupt request  */
 
+static unsigned char stopped = 0;   /* If stopped = 1, CPU is stopped. */
+
 
 
 
@@ -266,6 +268,7 @@ static void load8bit_dec_to_mem() {
 
 
 
+
 /*---- 16-Bit Loads -------------*/
 
 static void load16bit(unsigned short * destination, unsigned short *source) {
@@ -292,7 +295,15 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
     *hi_reg = memory[registers.sp++];
 }
 
+static void load16bit_sp_operand_offset() {
 
+  unsigned short operand_plus_sp = read8bit_signed_operand() + registers.sp;
+
+  load16bit(&registers.hl, &memory[operand_plus_sp]);
+
+   //TODO: calculate FLAG_H FLAG_CY
+  clear_flag(FLAG_Z | FLAG_N);
+}
 
 /*---- 8-Bit ALU ----------------*/
 
@@ -344,13 +355,19 @@ static void sub_operand() {
 static void adc (unsigned char* regs) {
 
 	unsigned char value = *regs;
-	if(registers.f & (1<<3)) value++;
+	if(registers.f & FLAG_CY) value++;
 	add8bit(&value);
 }
 
 static void adc_from_mem(unsigned char* reg_with_pointer) {
 
     adc(&memory[*reg_with_pointer]);
+}
+
+static void adc_operand() {
+
+    unsigned char operand = read8bit_operand();
+    adc(&operand);
 }
 
 static void xor_reg(unsigned char* reg) {
@@ -390,6 +407,11 @@ static void and_operand (){
 
 }
 
+static void and_from_mem(){
+
+    and_reg(&memory[registers.hl]);
+}
+
 static void or_reg(unsigned char* reg) {
 
     registers.a |= *reg;
@@ -400,6 +422,18 @@ static void or_reg(unsigned char* reg) {
         clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N | FLAG_H | FLAG_CY);
+}
+
+static void or_from_mem(){
+
+    or_reg(&memory[registers.hl]);
+}
+
+static void or_operand (){
+
+    unsigned char operand = read8bit_operand();
+    or_reg(&operand);
+
 }
 
 static void inc8bit(unsigned char* reg) {
@@ -543,6 +577,12 @@ static void swap (unsigned char* reg) {
     *reg = (((0x00) | new_lo) | new_hi);
 }
 
+static void stop_cpu() {
+
+    stopped = 1;
+}
+
+
 
 /*---- Rotates & Shifts ---------*/
 
@@ -575,7 +615,7 @@ static void sla_op(unsigned char* reg) {
     unsigned char left_most_bit = 0x80 & *reg;
     *reg = *reg<<1;
 
-    if(left_most_bit & 0x80)
+    if(left_most_bit)
       set_flag(FLAG_CY);
     else
       clear_flag(FLAG_CY);
@@ -585,8 +625,52 @@ static void sla_op(unsigned char* reg) {
     else
         set_flag(FLAG_Z);
 
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void srl_op(unsigned char* reg) {
+    unsigned char right_most_bit = 0x1 & *reg;
+    *reg = *reg>>1;
+
+    if(right_most_bit)
+      set_flag(FLAG_CY);
+    else
+      clear_flag(FLAG_CY);
+
+    if(*reg)
+        clear_flag(FLAG_Z);
+    else
+        set_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void rr_op(unsigned char* reg) {
+    unsigned char right_most_bit = 0x1 & *reg;
+    unsigned char carry_flag_value = FLAG_CY & registers.f;
+    *reg = *reg>>1;
+
+    if(carry_flag_value)
+      *reg = *reg | 0x80;
+
+    if(right_most_bit)
+      set_flag(FLAG_CY);
+    else
+      clear_flag(FLAG_CY);
+
+    if(*reg)
+      clear_flag(FLAG_Z);
+    else
+      set_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void rra_op() {
+
+  rr_op(&registers.a);
+
+  clear_flag(FLAG_CY);
 }
 
 /*---- Bit Opcodes --------------*/
@@ -601,6 +685,11 @@ static void bit_op(void* n, unsigned char * reg) {
 
     clear_flag(FLAG_N);
     set_flag(FLAG_H);
+}
+
+static void bit_op_from_mem(void* n, unsigned short * reg) {
+
+    bit_op(n, &memory[*reg]);
 }
 
 static void set_op(void* n, unsigned char* reg) {
@@ -762,7 +851,7 @@ const struct instruction instructions[256] = {
 	{ "DEC C", dec8bit, &registers.c},                        // 0x0d
 	{ "LD C, 0x%02X", load8bit_operand, &registers.c },                 // 0x0e
 	{ "RRCA", NULL},                         // 0x0f
-	{ "STOP", NULL},                         // 0x10
+	{ "STOP", stop_cpu},                         // 0x10
 	{ "LD DE, 0x%04X", load16bit_operand, &registers.de },                // 0x11
 	{ "LD (DE), A", load8bit_to_mem, &registers.de, &registers.a},                   // 0x12
 	{ "INC DE", inc16bit, &registers.de},                       // 0x13
@@ -777,7 +866,7 @@ const struct instruction instructions[256] = {
 	{ "INC E", inc8bit, &registers.e},                        // 0x1c
 	{ "DEC E", dec8bit, &registers.e},                        // 0x1d
 	{ "LD E, 0x%02X", load8bit_operand, &registers.e},                 // 0x1e
-	{ "RRA", NULL},                          // 0x1f
+	{ "RRA", rra_op},                          // 0x1f
 	{ "JR NZ, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 0 },                // 0x20
 	{ "LD HL, 0x%04X", load16bit_operand, &registers.hl },                // 0x21
 	{ "LDI (HL), A", load8bit_inc_to_mem},                  // 0x22
@@ -912,7 +1001,7 @@ const struct instruction instructions[256] = {
 	{ "AND E", and_reg, &registers.e},                        // 0xa3
 	{ "AND H", and_reg, &registers.h},                        // 0xa4
 	{ "AND L", and_reg, &registers.l},                        // 0xa5
-	{ "AND (HL)", NULL},                     // 0xa6
+	{ "AND (HL)", and_from_mem},                     // 0xa6
 	{ "AND A", and_reg, &registers.a},                        // 0xa7
 	{ "XOR B", xor_reg, &registers.b},                        // 0xa8
 	{ "XOR C", xor_reg, &registers.c},                        // 0xa9
@@ -928,7 +1017,7 @@ const struct instruction instructions[256] = {
 	{ "OR E", or_reg, &registers.e},                         // 0xb3
 	{ "OR H", or_reg, &registers.h},                         // 0xb4
 	{ "OR L", or_reg, &registers.l},                         // 0xb5
-	{ "OR (HL)", NULL},                      // 0xb6
+	{ "OR (HL)", or_from_mem},                      // 0xb6
 	{ "OR A", or_reg, &registers.a},                         // 0xb7
 	{ "CP B", cp_op, &registers.b},                         // 0xb8
 	{ "CP C", cp_op, &registers.c},                         // 0xb9
@@ -940,9 +1029,9 @@ const struct instruction instructions[256] = {
 	{ "CP A", cp_op, &registers.a},                         // 0xbf
 	{ "RET NZ", ret_condition, (void*) FLAG_Z, (void*) 0},                       // 0xc0
 	{ "POP BC", pop_op, &registers.b, &registers.c},                       // 0xc1
-	{ "JP NZ, 0x%04X", NULL},                // 0xc2
+	{ "JP NZ, 0x%04X", jump_condition_operand, (void*) FLAG_Z, (void*) 0},                // 0xc2
 	{ "JP 0x%04X", jump_operand},                    // 0xc3
-	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, 0},              // 0xc4
+	{ "CALL NZ, 0x%04X", call_condition, (void*) FLAG_Z, (void*) 0},              // 0xc4
 	{ "PUSH BC", push_op, &registers.b, &registers.c },                      // 0xc5
 	{ "ADD A, 0x%02X", add8bit_operand},                // 0xc6
 	{ "RST 0x00", rst, (void*) 0x00},                     // 0xc7
@@ -950,23 +1039,23 @@ const struct instruction instructions[256] = {
 	{ "RET", ret_op},                          // 0xc9
 	{ "JP Z, 0x%04X", jump_condition_operand, (void*) FLAG_Z, (void*) 1},                 // 0xca
 	{ "CB %02X", NULL}, //should never fall here                     // 0xcb
-	{ "CALL Z, 0x%04X", NULL},               // 0xcc
+	{ "CALL Z, 0x%04X", call_condition, (void*) FLAG_Z, (void*) 1},               // 0xcc
 	{ "CALL 0x%04X", call_operand},                  // 0xcd
-	{ "ADC 0x%02X", NULL},                   // 0xce
+	{ "ADC 0x%02X", adc_operand},                   // 0xce
 	{ "RST 0x08",  rst, (void*) 0x08},                     // 0xcf
-	{ "RET NC", NULL},                       // 0xd0
+	{ "RET NC", ret_condition, (void *) FLAG_CY, (void*) 0},                       // 0xd0
 	{ "POP DE", pop_op, &registers.d, &registers.e},                       // 0xd1
-	{ "JP NC, 0x%04X", NULL},                // 0xd2
+	{ "JP NC, 0x%04X", jump_condition_operand, (void*) FLAG_CY, (void*) 0},                // 0xd2
 	{ "UNKNOWN", NULL},                      // 0xd3
-	{ "CALL NC, 0x%04X", NULL},              // 0xd4
+	{ "CALL NC, 0x%04X", call_condition, (void*) FLAG_CY, (void*) 0},              // 0xd4
 	{ "PUSH DE", push_op, &registers.d, &registers.e},                      // 0xd5
 	{ "SUB 0x%02X", sub_operand},                   // 0xd6
 	{ "RST 0x10",  rst, (void*) 0x10},                     // 0xd7
-	{ "RET C", NULL},                        // 0xd8
+	{ "RET C", ret_condition, (void *) FLAG_CY, (void*) 1},                        // 0xd8
 	{ "RETI", ret_interrupt},                         // 0xd9
-	{ "JP C, 0x%04X", NULL},                 // 0xda
+	{ "JP C, 0x%04X", jump_condition_operand, (void*) FLAG_CY, (void*) 1},                 // 0xda
 	{ "UNKNOWN", NULL},                      // 0xdb
-	{ "CALL C, 0x%04X", NULL},               // 0xdc
+	{ "CALL C, 0x%04X", call_condition, (void*) FLAG_CY, (void*) 1},               // 0xdc
 	{ "UNKNOWN", NULL},                      // 0xdd
 	{ "SBC 0x%02X", NULL},                   // 0xde
 	{ "RST 0x18",  rst, (void*) 0x18},                     // 0xdf
@@ -992,7 +1081,7 @@ const struct instruction instructions[256] = {
 	{ "DI", disable_interrupts},                           // 0xf3
 	{ "UNKNOWN", NULL},                      // 0xf4
 	{ "PUSH AF", push_op, &registers.a, &registers.f},                      // 0xf5
-	{ "OR 0x%02X", NULL},                    // 0xf6
+	{ "OR 0x%02X", or_operand},                    // 0xf6
 	{ "RST 0x30",  rst, (void*) 0x30},                     // 0xf7
 	{ "LD HL, SP+0x%02X", NULL},             // 0xf8
 	{ "LD SP, HL", load16bit, &registers.sp, &registers.hl},                    // 0xf9
@@ -1051,14 +1140,14 @@ const struct instruction instructions_cb[256] = {
 	{ "RL L", rl_op, &registers.l},             // 0x15
 	{ "RL (HL)", NULL},        // 0x16
 	{ "RL A", rl_op, &registers.a},             // 0x17
-	{ "RR B", NULL},             // 0x18
-	{ "RR C", NULL},             // 0x19
-	{ "RR D", NULL},             // 0x1a
-	{ "RR E", NULL},             // 0x1b
-	{ "RR H", NULL},             // 0x1c
-	{ "RR L", NULL},             // 0x1d
+	{ "RR B", rr_op, &registers.b},             // 0x18
+	{ "RR C", rr_op, &registers.c},             // 0x19
+	{ "RR D", rr_op, &registers.d},             // 0x1a
+	{ "RR E", rr_op, &registers.e},             // 0x1b
+	{ "RR H", rr_op, &registers.h},             // 0x1c
+	{ "RR L", rr_op, &registers.l},             // 0x1d
 	{ "RR (HL)", NULL},        // 0x1e
-	{ "RR A", NULL},             // 0x1f
+	{ "RR A", rr_op, &registers.a},             // 0x1f
 	{ "SLA B", sla_op, &registers.b},           // 0x20
 	{ "SLA C", sla_op, &registers.c},           // 0x21
 	{ "SLA D", sla_op, &registers.d},           // 0x22
@@ -1066,7 +1155,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SLA H", sla_op, &registers.h},           // 0x24
 	{ "SLA L", sla_op, &registers.l},           // 0x25
 	{ "SLA (HL)", NULL},      // 0x26
-	{ "SLA A",sla_op, &registers.a},           // 0x27
+	{ "SLA A", sla_op, &registers.a},           // 0x27
 	{ "SRA B", NULL},           // 0x28
 	{ "SRA C", NULL},           // 0x29
 	{ "SRA D", NULL},           // 0x2a
@@ -1083,78 +1172,78 @@ const struct instruction instructions_cb[256] = {
 	{ "SWAP L", swap, &registers.l},         // 0x35
 	{ "SWAP (HL)", NULL},    // 0x36
 	{ "SWAP A", swap, &registers.a},         // 0x37
-	{ "SRL B", NULL},           // 0x38
-	{ "SRL C", NULL},           // 0x39
-	{ "SRL D", NULL},           // 0x3a
-	{ "SRL E", NULL},           // 0x3b
-	{ "SRL H", NULL},           // 0x3c
-	{ "SRL L", NULL},           // 0x3d
+	{ "SRL B", srl_op, &registers.b},           // 0x38
+	{ "SRL C", srl_op, &registers.c},           // 0x39
+	{ "SRL D", srl_op, &registers.d},           // 0x3a
+	{ "SRL E", srl_op, &registers.e},           // 0x3b
+	{ "SRL H", srl_op, &registers.h},           // 0x3c
+	{ "SRL L", srl_op, &registers.l},           // 0x3d
 	{ "SRL (HL)", NULL},      // 0x3e
-	{ "SRL A", NULL},           // 0x3f
-	{ "BIT 0, B", NULL},      // 0x40
-	{ "BIT 0, C", NULL},      // 0x41
-	{ "BIT 0, D", NULL},      // 0x42
-	{ "BIT 0, E", NULL},      // 0x43
-	{ "BIT 0, H", NULL},      // 0x44
-	{ "BIT 0, L", NULL},      // 0x45
-	{ "BIT 0, (HL)", NULL}, // 0x46
-	{ "BIT 0, A", NULL},      // 0x47
-	{ "BIT 1, B", NULL},      // 0x48
-	{ "BIT 1, C", NULL},      // 0x49
-	{ "BIT 1, D", NULL},      // 0x4a
-	{ "BIT 1, E", NULL},      // 0x4b
-	{ "BIT 1, H", NULL},      // 0x4c
-	{ "BIT 1, L", NULL},      // 0x4d
-	{ "BIT 1, (HL)", NULL}, // 0x4e
-	{ "BIT 1, A", NULL},      // 0x4f
-	{ "BIT 2, B", NULL},      // 0x50
-	{ "BIT 2, C", NULL},      // 0x51
-	{ "BIT 2, D", NULL},      // 0x52
-	{ "BIT 2, E", NULL},      // 0x53
-	{ "BIT 2, H", NULL},      // 0x54
-	{ "BIT 2, L", NULL},      // 0x55
-	{ "BIT 2, (HL)", NULL}, // 0x56
-	{ "BIT 2, A", NULL},      // 0x57
-	{ "BIT 3, B", NULL},      // 0x58
-	{ "BIT 3, C", NULL},      // 0x59
-	{ "BIT 3, D", NULL},      // 0x5a
-	{ "BIT 3, E", NULL},      // 0x5b
-	{ "BIT 3, H", NULL},      // 0x5c
-	{ "BIT 3, L", NULL},      // 0x5d
-	{ "BIT 3, (HL)", NULL}, // 0x5e
-	{ "BIT 3, A", NULL},      // 0x5f
-	{ "BIT 4, B", NULL},      // 0x60
-	{ "BIT 4, C", NULL},      // 0x61
-	{ "BIT 4, D", NULL},      // 0x62
-	{ "BIT 4, E", NULL},      // 0x63
-	{ "BIT 4, H", NULL},      // 0x64
-	{ "BIT 4, L", NULL},      // 0x65
-	{ "BIT 4, (HL)", NULL}, // 0x66
-	{ "BIT 4, A", NULL},      // 0x67
-	{ "BIT 5, B", NULL},      // 0x68
-	{ "BIT 5, C", NULL},      // 0x69
-	{ "BIT 5, D", NULL},      // 0x6a
-	{ "BIT 5, E", NULL},      // 0x6b
-	{ "BIT 6, H", NULL},      // 0x6c
-	{ "BIT 6, L", NULL},      // 0x6d
-	{ "BIT 5, (HL)", NULL}, // 0x6e
-	{ "BIT 5, A", NULL},      // 0x6f
-	{ "BIT 6, B", NULL},      // 0x70
-	{ "BIT 6, C", NULL},      // 0x71
-	{ "BIT 6, D", NULL},      // 0x72
-	{ "BIT 6, E", NULL},      // 0x73
-	{ "BIT 6, H", NULL},      // 0x74
-	{ "BIT 6, L", NULL},      // 0x75
-	{ "BIT 6, (HL)", NULL}, // 0x76
-	{ "BIT 6, A", NULL},      // 0x77
-	{ "BIT 7, B", NULL},      // 0x78
-	{ "BIT 7, C", NULL},      // 0x79
-	{ "BIT 7, D", NULL},      // 0x7a
+	{ "SRL A", srl_op, &registers.a},           // 0x3f
+	{ "BIT 0, B", bit_op, (void*) 0, &registers.b },      // 0x40
+	{ "BIT 0, C", bit_op, (void*) 0, &registers.c },      // 0x41
+	{ "BIT 0, D", bit_op, (void*) 0, &registers.d },      // 0x42
+	{ "BIT 0, E", bit_op, (void*) 0, &registers.e },      // 0x43
+	{ "BIT 0, H", bit_op, (void*) 0, &registers.h },      // 0x44
+	{ "BIT 0, L", bit_op, (void*) 0, &registers.l },      // 0x45
+	{ "BIT 0, (HL)", bit_op_from_mem, (void*) 0, &registers.hl }, // 0x46
+	{ "BIT 0, A", bit_op, (void*) 0, &registers.a },      // 0x47
+	{ "BIT 1, B", bit_op, (void*) 1, &registers.b },      // 0x48
+	{ "BIT 1, C", bit_op, (void*) 1, &registers.c },      // 0x49
+	{ "BIT 1, D", bit_op, (void*) 1, &registers.d },      // 0x4a
+	{ "BIT 1, E", bit_op, (void*) 1, &registers.e },      // 0x4b
+	{ "BIT 1, H", bit_op, (void*) 1, &registers.h },      // 0x4c
+	{ "BIT 1, L", bit_op, (void*) 1, &registers.l },      // 0x4d
+	{ "BIT 1, (HL)", bit_op_from_mem, (void*) 1, &registers.hl }, // 0x4e
+	{ "BIT 1, A", bit_op, (void*) 1, &registers.a },      // 0x4f
+	{ "BIT 2, B", bit_op, (void*) 2, &registers.b },      // 0x50
+	{ "BIT 2, C", bit_op, (void*) 2, &registers.c },      // 0x51
+	{ "BIT 2, D", bit_op, (void*) 2, &registers.d },      // 0x52
+	{ "BIT 2, E", bit_op, (void*) 2, &registers.e },      // 0x53
+	{ "BIT 2, H", bit_op, (void*) 2, &registers.h },      // 0x54
+	{ "BIT 2, L", bit_op, (void*) 2, &registers.l },      // 0x55
+	{ "BIT 2, (HL)", bit_op_from_mem, (void*) 2, &registers.hl }, // 0x56
+	{ "BIT 2, A", bit_op, (void*) 2, &registers.a },      // 0x57
+	{ "BIT 3, B", bit_op, (void*) 3, &registers.b },      // 0x58
+	{ "BIT 3, C", bit_op, (void*) 3, &registers.c },      // 0x59
+	{ "BIT 3, D", bit_op, (void*) 3, &registers.d },      // 0x5a
+	{ "BIT 3, E", bit_op, (void*) 3, &registers.e },      // 0x5b
+	{ "BIT 3, H", bit_op, (void*) 3, &registers.h },      // 0x5c
+	{ "BIT 3, L", bit_op, (void*) 3, &registers.l },      // 0x5d
+	{ "BIT 3, (HL)", bit_op_from_mem, (void*) 3, &registers.hl }, // 0x5e
+	{ "BIT 3, A", bit_op, (void*) 3, &registers.a },      // 0x5f
+	{ "BIT 4, B", bit_op, (void*) 4, &registers.b },      // 0x60
+	{ "BIT 4, C", bit_op, (void*) 4, &registers.c },      // 0x61
+	{ "BIT 4, D", bit_op, (void*) 4, &registers.d },      // 0x62
+	{ "BIT 4, E", bit_op, (void*) 4, &registers.e },      // 0x63
+	{ "BIT 4, H", bit_op, (void*) 4, &registers.h },      // 0x64
+	{ "BIT 4, L", bit_op, (void*) 4, &registers.l },      // 0x65
+	{ "BIT 4, (HL)", bit_op_from_mem, (void*) 4, &registers.hl }, // 0x66
+	{ "BIT 4, A", bit_op, (void*) 4, &registers.a },      // 0x67
+	{ "BIT 5, B", bit_op, (void*) 5, &registers.b },      // 0x68
+	{ "BIT 5, C", bit_op, (void*) 5, &registers.c },      // 0x69
+	{ "BIT 5, D", bit_op, (void*) 5, &registers.d },      // 0x6a
+	{ "BIT 5, E", bit_op, (void*) 5, &registers.e },      // 0x6b
+	{ "BIT 5, H", bit_op, (void*) 5, &registers.h },      // 0x6c
+	{ "BIT 5, L", bit_op, (void*) 5, &registers.l },      // 0x6d
+	{ "BIT 5, (HL)", bit_op_from_mem, 5, &registers.hl }, // 0x6e
+	{ "BIT 5, A", bit_op, (void*) 5, &registers.a },      // 0x6f
+	{ "BIT 6, B", bit_op, (void*) 6, &registers.b },      // 0x70
+	{ "BIT 6, C", bit_op, (void*) 6, &registers.c },      // 0x71
+	{ "BIT 6, D", bit_op, (void*) 6, &registers.d },      // 0x72
+	{ "BIT 6, E", bit_op, (void*) 6, &registers.e },      // 0x73
+	{ "BIT 6, H", bit_op, (void*) 6, &registers.h },      // 0x74
+	{ "BIT 6, L", bit_op, (void*) 6, &registers.l },      // 0x75
+	{ "BIT 6, (HL)", bit_op_from_mem, 6, &registers.hl}, // 0x76
+	{ "BIT 6, A", bit_op, (void*) 6, &registers.a },      // 0x77
+	{ "BIT 7, B", bit_op, (void*) 7, &registers.b },      // 0x78
+	{ "BIT 7, C", bit_op, (void*) 7, &registers.c },      // 0x79
+	{ "BIT 7, D", bit_op, (void*) 7, &registers.d },      // 0x7a
 	{ "BIT 7, E", bit_op, (void*) 7, &registers.e },      // 0x7b
 	{ "BIT 7, H", bit_op, (void*) 7, &registers.h },      // 0x7c
-	{ "BIT 7, L", NULL},      // 0x7d
-	{ "BIT 7, (HL)", NULL}, // 0x7e
-	{ "BIT 7, A", NULL},      // 0x7f
+	{ "BIT 7, L", bit_op, (void*) 7, &registers.l },      // 0x7d
+	{ "BIT 7, (HL)", bit_op_from_mem, 7, &registers.hl }, // 0x7e
+	{ "BIT 7, A", bit_op, (void*) 7, &registers.a },      // 0x7f
 	{ "RES 0, B", NULL},      // 0x80
 	{ "RES 0, C", NULL},      // 0x81
 	{ "RES 0, D", NULL},      // 0x82
@@ -1219,70 +1308,70 @@ const struct instruction instructions_cb[256] = {
 	{ "RES 7, L", NULL},      // 0xbd
 	{ "RES 7, (HL)", NULL}, // 0xbe
 	{ "RES 7, A", NULL},      // 0xbf
-	{ "SET 0, B", NULL},      // 0xc0
-	{ "SET 0, C", NULL},      // 0xc1
-	{ "SET 0, D", NULL},      // 0xc2
-	{ "SET 0, E", NULL},      // 0xc3
-	{ "SET 0, H", NULL},      // 0xc4
-	{ "SET 0, L", NULL},      // 0xc5
-	{ "SET 0, (HL)", NULL}, // 0xc6
-	{ "SET 0, A", NULL},      // 0xc7
-	{ "SET 1, B", NULL},      // 0xc8
-	{ "SET 1, C", NULL},      // 0xc9
-	{ "SET 1, D", NULL},      // 0xca
-	{ "SET 1, E", NULL},      // 0xcb
-	{ "SET 1, H", NULL},      // 0xcc
-	{ "SET 1, L", NULL},      // 0xcd
-	{ "SET 1, (HL)", NULL}, // 0xce
-	{ "SET 1, A", NULL},      // 0xcf
-	{ "SET 2, B", NULL},      // 0xd0
-	{ "SET 2, C", NULL},      // 0xd1
-	{ "SET 2, D", NULL},      // 0xd2
-	{ "SET 2, E", NULL},      // 0xd3
-	{ "SET 2, H", NULL},      // 0xd4
-	{ "SET 2, L", NULL},      // 0xd5
-	{ "SET 2, (HL)", NULL}, // 0xd6
-	{ "SET 2, A", NULL},      // 0xd7
-	{ "SET 3, B", NULL},      // 0xd8
-	{ "SET 3, C", NULL},      // 0xd9
-	{ "SET 3, D", NULL},      // 0xda
-	{ "SET 3, E", NULL},      // 0xdb
-	{ "SET 3, H", NULL},      // 0xdc
-	{ "SET 3, L", NULL},      // 0xdd
-	{ "SET 3, (HL)", NULL}, // 0xde
-	{ "SET 3, A", NULL},      // 0xdf
-	{ "SET 4, B", NULL},      // 0xe0
-	{ "SET 4, C", NULL},      // 0xe1
-	{ "SET 4, D", NULL},      // 0xe2
-	{ "SET 4, E", NULL},      // 0xe3
-	{ "SET 4, H", NULL},      // 0xe4
-	{ "SET 4, L", NULL},      // 0xe5
-	{ "SET 4, (HL)", NULL}, // 0xe6
-	{ "SET 4, A", NULL},      // 0xe7
-	{ "SET 5, B", NULL},      // 0xe8
-	{ "SET 5, C", NULL},      // 0xe9
-	{ "SET 5, D", NULL},      // 0xea
-	{ "SET 5, E", NULL},      // 0xeb
-	{ "SET 5, H", NULL},      // 0xec
-	{ "SET 5, L", NULL},      // 0xed
-	{ "SET 5, (HL)", NULL}, // 0xee
-	{ "SET 5, A", NULL},      // 0xef
-	{ "SET 6, B", NULL},      // 0xf0
-	{ "SET 6, C", NULL},      // 0xf1
-	{ "SET 6, D", NULL},      // 0xf2
-	{ "SET 6, E", NULL},      // 0xf3
-	{ "SET 6, H", NULL},      // 0xf4
-	{ "SET 6, L", NULL},      // 0xf5
-	{ "SET 6, (HL)", NULL}, // 0xf6
-	{ "SET 6, A", NULL},      // 0xf7
-	{ "SET 7, B", NULL},      // 0xf8
-	{ "SET 7, C", NULL},      // 0xf9
-	{ "SET 7, D", NULL},      // 0xfa
-	{ "SET 7, E", NULL},      // 0xfb
-	{ "SET 7, H", NULL},      // 0xfc
-	{ "SET 7, L", NULL},      // 0xfd
+	{ "SET 0, B", set_op, (void*) 0, &registers.b },      // 0xc0
+	{ "SET 0, C", set_op, (void*) 0, &registers.c },      // 0xc1
+	{ "SET 0, D", set_op, (void*) 0, &registers.d },      // 0xc2
+	{ "SET 0, E", set_op, (void*) 0, &registers.e },      // 0xc3
+	{ "SET 0, H", set_op, (void*) 0, &registers.h },      // 0xc4
+	{ "SET 0, L", set_op, (void*) 0, &registers.l },      // 0xc5
+	{ "SET 0, (HL)", set_op_from_mem, (void*) 0, &registers.hl }, // 0xc6
+	{ "SET 0, A", set_op, (void*) 0, &registers.a },      // 0xc7
+	{ "SET 1, B", set_op, (void*) 1, &registers.b },      // 0xc8
+	{ "SET 1, C", set_op, (void*) 1, &registers.c },      // 0xc9
+	{ "SET 1, D", set_op, (void*) 1, &registers.d },      // 0xca
+	{ "SET 1, E", set_op, (void*) 1, &registers.e },      // 0xcb
+	{ "SET 1, H", set_op, (void*) 1, &registers.h },      // 0xcc
+	{ "SET 1, L", set_op, (void*) 1, &registers.l },      // 0xcd
+	{ "SET 1, (HL)", set_op_from_mem, (void*) 1, &registers.hl }, // 0xce
+	{ "SET 1, A", set_op, (void*) 1, &registers.a },      // 0xcf
+	{ "SET 2, B", set_op, (void*) 2, &registers.b },      // 0xd0
+	{ "SET 2, C", set_op, (void*) 2, &registers.c },      // 0xd1
+	{ "SET 2, D", set_op, (void*) 2, &registers.d },      // 0xd2
+	{ "SET 2, E", set_op, (void*) 2, &registers.e },      // 0xd3
+	{ "SET 2, H", set_op, (void*) 2, &registers.h },      // 0xd4
+	{ "SET 2, L", set_op, (void*) 2, &registers.l },      // 0xd5
+	{ "SET 2, (HL)", set_op_from_mem, (void*) 2, &registers.hl }, // 0xd6
+	{ "SET 2, A", set_op, (void*) 2, &registers.a },      // 0xd7
+	{ "SET 3, B", set_op, (void*) 3, &registers.b },      // 0xd8
+	{ "SET 3, C", set_op, (void*) 3, &registers.c },      // 0xd9
+	{ "SET 3, D", set_op, (void*) 3, &registers.d },      // 0xda
+	{ "SET 3, E", set_op, (void*) 3, &registers.e },      // 0xdb
+	{ "SET 3, H", set_op, (void*) 3, &registers.h },      // 0xdc
+	{ "SET 3, L", set_op, (void*) 3, &registers.l },      // 0xdd
+	{ "SET 3, (HL)", set_op_from_mem, (void*) 3, &registers.hl }, // 0xde
+	{ "SET 3, A", set_op, (void*) 3, &registers.a },      // 0xdf
+	{ "SET 4, B", set_op, (void*) 4, &registers.b },      // 0xe0
+	{ "SET 4, C", set_op, (void*) 4, &registers.c },      // 0xe1
+	{ "SET 4, D", set_op, (void*) 4, &registers.d },      // 0xe2
+	{ "SET 4, E", set_op, (void*) 4, &registers.e },      // 0xe3
+	{ "SET 4, H", set_op, (void*) 4, &registers.h },      // 0xe4
+	{ "SET 4, L", set_op, (void*) 4, &registers.l },      // 0xe5
+	{ "SET 4, (HL)", set_op_from_mem, (void*) 4, &registers.hl }, // 0xe6
+	{ "SET 4, A", set_op, (void*) 4, &registers.a },      // 0xe7
+	{ "SET 5, B", set_op, (void*) 5, &registers.b },      // 0xe8
+	{ "SET 5, C", set_op, (void*) 5, &registers.c },      // 0xe9
+	{ "SET 5, D", set_op, (void*) 5, &registers.d },      // 0xea
+	{ "SET 5, E", set_op, (void*) 5, &registers.e },      // 0xeb
+	{ "SET 5, H", set_op, (void*) 5, &registers.h },      // 0xec
+	{ "SET 5, L", set_op, (void*) 5, &registers.l },      // 0xed
+	{ "SET 5, (HL)", set_op_from_mem, (void*) 5, &registers.hl }, // 0xee
+	{ "SET 5, A", set_op, (void*) 5, &registers.a },      // 0xef
+	{ "SET 6, B", set_op, (void*) 6, &registers.b },      // 0xf0
+	{ "SET 6, C", set_op, (void*) 6, &registers.c },      // 0xf1
+	{ "SET 6, D", set_op, (void*) 6, &registers.d },      // 0xf2
+	{ "SET 6, E", set_op, (void*) 6, &registers.e },      // 0xf3
+	{ "SET 6, H", set_op, (void*) 6, &registers.h },      // 0xf4
+	{ "SET 6, L", set_op, (void*) 6, &registers.l },      // 0xf5
+	{ "SET 6, (HL)", set_op_from_mem, (void*) 6, &registers.hl }, // 0xf6
+	{ "SET 6, A", set_op, (void*) 6, &registers.a },      // 0xf7
+	{ "SET 7, B", set_op, (void*) 7, &registers.b },      // 0xf8
+	{ "SET 7, C", set_op, (void*) 7, &registers.c },      // 0xf9
+	{ "SET 7, D", set_op, (void*) 7, &registers.d },      // 0xfa
+	{ "SET 7, E", set_op, (void*) 7, &registers.e },      // 0xfb
+	{ "SET 7, H", set_op, (void*) 7, &registers.h },      // 0xfc
+	{ "SET 7, L", set_op, (void*) 7, &registers.l },      // 0xfd
 	{ "SET 7, (HL)", set_op_from_mem, (void*) 7, &registers.hl}, // 0xfe
-	{ "SET 7, A", NULL},      // 0xff
+	{ "SET 7, A", set_op, (void*) 7, &registers.a},      // 0xff
 };
 
 const unsigned char instructions_cb_ticks[256] = {
@@ -1410,7 +1499,7 @@ int cpu() {
 
     int cycles = 0;
 
-    if (!halted)
+    if (!halted && !stopped)
          cycles = execute();
     else
         if (!interrupt_master_enable)   /* special case, if interrupts aren't enabled, halt is only enabled for one execute */
