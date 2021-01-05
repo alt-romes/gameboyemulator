@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     }
 
 
-    /* run_tests(); */
+    run_tests();
 
     insert_cartridge("tetris-jp.gb");
 

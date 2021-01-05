@@ -228,6 +228,11 @@ static void load8bit_from_mem_operand(unsigned char * destination) {
 
 }
 
+static void load8bit_from_io_mem(unsigned char* destination, unsigned char* offset_reg) {
+
+    load8bit(destination, &ioports[*offset_reg]);
+}
+
 static void load8bit_from_io_mem_operand(unsigned char* destination) {
 
     unsigned char operand = read8bit_operand();
@@ -878,7 +883,7 @@ const struct instruction instructions[256] = {
 	{ "DEC C", dec8bit, &registers.c},                        // 0x0d
 	{ "LD C, 0x%02X", load8bit_operand, &registers.c },                 // 0x0e
 	{ "RRCA", NULL},                         // 0x0f
-	{ "STOP", stop_cpu},                         // 0x10
+	{ "STOP", NULL},                         // 0x10
 	{ "LD DE, 0x%04X", load16bit_operand, &registers.de },                // 0x11
 	{ "LD (DE), A", load8bit_to_mem, &registers.de, &registers.a},                   // 0x12
 	{ "INC DE", inc16bit, &registers.de},                       // 0x13
@@ -1104,7 +1109,7 @@ const struct instruction instructions[256] = {
 	{ "RST 0x28",  rst, (void*) 0x28},                     // 0xef
 	{ "LD A, (0xFF00 + 0x%02X)", load8bit_from_io_mem_operand, &registers.a},      // 0xf0
 	{ "POP AF", pop_op, &registers.a, &registers.f},                       // 0xf1
-	{ "LD A, (0xFF00 + C)", NULL},           // 0xf2
+	{ "LD A, (0xFF00 + C)", load8bit_from_io_mem, &registers.a, &registers.c},           // 0xf2
 	{ "DI", disable_interrupts},                           // 0xf3
 	{ "UNKNOWN", NULL},                      // 0xf4
 	{ "PUSH AF", push_op, &registers.a, &registers.f},                      // 0xf5

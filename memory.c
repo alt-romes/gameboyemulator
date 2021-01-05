@@ -135,11 +135,13 @@ void load_roms() {
 }
 
 void load_tests() {
+
     
     FILE* test = fopen("tests/cpu_instrs/cpu_instrs.gb", "rb");
     fread(memory, sizeof(unsigned char), 0x8000, test);
 
     fclose(test);
+
 }
 
 void check_disable_bootrom() {
