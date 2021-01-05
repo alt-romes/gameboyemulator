@@ -297,12 +297,12 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
 static void load16bit_sp_operand_offset() {
 
-  unsigned short operand_plus_sp = read8bit_signed_operand() + registers.sp;
+    unsigned short operand_plus_sp = read8bit_signed_operand() + registers.sp;
 
-  load16bit(&registers.hl, &memory[operand_plus_sp]);
+    load16bit(&registers.hl, &operand_plus_sp);
 
-   //TODO: calculate FLAG_H FLAG_CY
-  clear_flag(FLAG_Z | FLAG_N);
+    //TODO: calculate FLAG_H FLAG_CY
+    clear_flag(FLAG_Z | FLAG_N);
 }
 
 /*---- 8-Bit ALU ----------------*/
@@ -668,9 +668,36 @@ static void rr_op(unsigned char* reg) {
 
 static void rra_op() {
 
-  rr_op(&registers.a);
+    rr_op(&registers.a);
 
-  clear_flag(FLAG_CY);
+    clear_flag(FLAG_CY);
+}
+
+static void rlc_op(unsigned char* reg) {
+    unsigned char left_most_bit = 0x80 & *reg;
+    *reg = *reg<<1;
+
+    if(left_most_bit) {
+      *reg = *reg | 0x1;
+      set_flag(FLAG_CY);
+    }else{
+      *reg = *reg | 0x0;
+      clear_flag(FLAG_CY);
+    }
+
+    if(*reg)
+      set_flag(FLAG_Z);
+    else
+      clear_flag(FLAG_Z);
+
+    clear_flag(FLAG_H | FLAG_N);
+}
+
+static void rlca_op() {
+
+    rlc_op(&registers.a);
+
+    clear_flag(FLAG_Z);
 }
 
 /*---- Bit Opcodes --------------*/
@@ -842,7 +869,7 @@ const struct instruction instructions[256] = {
 	{ "INC B", inc8bit, &registers.b},                        // 0x04
 	{ "DEC B", dec8bit, &registers.b},                        // 0x05
 	{ "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
-	{ "RLCA", NULL},                         // 0x07
+	{ "RLCA", rlca_op},                         // 0x07
 	{ "LD (0x%04X), SP", NULL},              // 0x08
 	{ "ADD HL, BC", add16bit, &registers.hl, &registers.bc},                   // 0x09
 	{ "LD A, (BC)", load8bit_from_mem, &registers.a, &registers.bc},                   // 0x0a
@@ -1083,7 +1110,7 @@ const struct instruction instructions[256] = {
 	{ "PUSH AF", push_op, &registers.a, &registers.f},                      // 0xf5
 	{ "OR 0x%02X", or_operand},                    // 0xf6
 	{ "RST 0x30",  rst, (void*) 0x30},                     // 0xf7
-	{ "LD HL, SP+0x%02X", NULL},             // 0xf8
+	{ "LD HL, SP+0x%02X", load16bit_sp_operand_offset},             // 0xf8
 	{ "LD SP, HL", load16bit, &registers.sp, &registers.hl},                    // 0xf9
 	{ "LD A, (0x%04X)", load8bit_from_mem_operand, &registers.a},               // 0xfa
 	{ "EI", enable_interrupts},                           // 0xfb
@@ -1116,14 +1143,14 @@ const unsigned char instructions_ticks[256] = {
  * Instructions with prefix CB
  */
 const struct instruction instructions_cb[256] = {
-    { "RLC B", NULL},           // 0x00
-	{ "RLC C", NULL},           // 0x01
-	{ "RLC D", NULL},           // 0x02
-	{ "RLC E", NULL},           // 0x03
-	{ "RLC H", NULL},           // 0x04
-	{ "RLC L", NULL},           // 0x05
+    { "RLC B", rlc_op, &registers.b},           // 0x00
+	{ "RLC C", rlc_op, &registers.c},           // 0x01
+	{ "RLC D", rlc_op, &registers.d},           // 0x02
+	{ "RLC E", rlc_op, &registers.e},           // 0x03
+	{ "RLC H", rlc_op, &registers.h},           // 0x04
+	{ "RLC L", rlc_op, &registers.l},           // 0x05
 	{ "RLC (HL)", NULL},      // 0x06
-	{ "RLC A", NULL},           // 0x07
+	{ "RLC A", rlc_op, &registers.a},           // 0x07
 	{ "RRC B", NULL},           // 0x08
 	{ "RRC C", NULL},           // 0x09
 	{ "RRC D", NULL},           // 0x0a
