@@ -392,6 +392,12 @@ static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
     xor_reg(&memory[*reg_with_pointer]);
 }
 
+static void xor_operand() {
+
+    unsigned char operand = read8bit_operand();
+    xor_reg(&operand);
+}
+
 static void and_reg(unsigned char* reg) {
 
     registers.a &= *reg;
@@ -1105,7 +1111,7 @@ const struct instruction instructions[256] = {
 	{ "UNKNOWN", NULL},                      // 0xeb
 	{ "UNKNOWN", NULL},                      // 0xec
 	{ "UNKNOWN", NULL},                      // 0xed
-	{ "XOR 0x%02X", NULL},                   // 0xee
+	{ "XOR 0x%02X", xor_operand},                   // 0xee
 	{ "RST 0x28",  rst, (void*) 0x28},                     // 0xef
 	{ "LD A, (0xFF00 + 0x%02X)", load8bit_from_io_mem_operand, &registers.a},      // 0xf0
 	{ "POP AF", pop_op, &registers.a, &registers.f},                       // 0xf1
@@ -1532,9 +1538,12 @@ static int execute() {
 
 int cpu() {
 
+    if (stopped)    /* when the CPU is stopped, just keep updating the window (return random number of cycles) */
+        return 2;
+
     int cycles = 0;
     
-    if (!halted && !stopped)
+    if (!halted)
          cycles = execute();
     else
         if (!interrupt_master_enable)   /* special case, if interrupts aren't enabled, halt is only enabled for one execute */

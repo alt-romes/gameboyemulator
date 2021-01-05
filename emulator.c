@@ -88,6 +88,8 @@ void emulate() {
 
 static void boot() {
 
+    load_roms();
+
     init_gui();
 
 }
@@ -110,7 +112,6 @@ int main(int argc, char *argv[])
 
     insert_cartridge("tetris-jp.gb");
 
-    load_roms();
 
     boot();
 
@@ -121,11 +122,13 @@ int main(int argc, char *argv[])
 
 void run_tests() {
 
+    // TODO: To run the whole "cpu_instr" test, i need to implement MBC1
+
     // http://slack.net/~ant/old/gb-tests/
 
     load_tests();
 
-    /* boot(); */
+    init_gui();
 
     boot_tests();
 
