@@ -883,7 +883,7 @@ const struct instruction instructions[256] = {
 	{ "DEC C", dec8bit, &registers.c},                        // 0x0d
 	{ "LD C, 0x%02X", load8bit_operand, &registers.c },                 // 0x0e
 	{ "RRCA", NULL},                         // 0x0f
-	{ "STOP", NULL},                         // 0x10
+	{ "STOP", stop_cpu},                         // 0x10
 	{ "LD DE, 0x%04X", load16bit_operand, &registers.de },                // 0x11
 	{ "LD (DE), A", load8bit_to_mem, &registers.de, &registers.a},                   // 0x12
 	{ "INC DE", inc16bit, &registers.de},                       // 0x13
@@ -1491,6 +1491,7 @@ static void process_interrupts() {
 
 static int execute() {
 
+
     unsigned char opcode = memory[registers.pc++];
 
     int time;   /* time is in cycles */
@@ -1510,7 +1511,7 @@ static int execute() {
 
         if (debugger)
             printf("%s -> 0x%x\n", instruction.disassembly, opcode);
-
+        
         instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
 
         if (debugger)
@@ -1523,6 +1524,8 @@ static int execute() {
 
     }
 
+
+
     return time;
 }
 
@@ -1530,7 +1533,7 @@ static int execute() {
 int cpu() {
 
     int cycles = 0;
-
+    
     if (!halted && !stopped)
          cycles = execute();
     else

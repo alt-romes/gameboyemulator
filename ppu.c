@@ -22,6 +22,9 @@ static const int TOTAL_SCANLINE_CYCLES = 456;
 
 static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
+static int graphics_enabled = 0;
+
+
 
 /*---- LCD Control Status -----------------------------------------*/
 
@@ -292,38 +295,43 @@ static void init_gui() {
 
     glClearColor(0, 0, 0, 1);
 #endif
+    graphics_enabled = 1;
 }
 
 
 static void render_frame() {
+    if (graphics_enabled) {
+
 #ifdef __APPLE__
-    if(!glfwWindowShouldClose(window)) {
+        if(!glfwWindowShouldClose(window)) {
 
-        /* processInput(window); ?? */
+            /* processInput(window); ?? */
 
-        /* Render here */
+            /* Render here */
 
-        /* glClear(GL_COLOR_BUFFER_BIT); */ // don't need it for now
+            /* glClear(GL_COLOR_BUFFER_BIT); */ // don't need it for now
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, scanlinesbuffer);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, scanlinesbuffer);
 
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-        /* Swap front and back buffers
-         * (back buffer is being written to, front buffer is being rendered)
-         */
-        glfwSwapBuffers(window);
+            /* Swap front and back buffers
+             * (back buffer is being written to, front buffer is being rendered)
+             */
+            glfwSwapBuffers(window);
 
-        /* Poll for and process events */
-        glfwPollEvents();
+            /* Poll for and process events */
+            glfwPollEvents();
 
-    }
-    else {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        exit(0);
-    }
+        }
+        else {
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            exit(0);
+        }
 #endif
+
+    }
 }
 
 

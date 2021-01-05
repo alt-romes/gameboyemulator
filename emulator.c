@@ -67,7 +67,6 @@ void update() {
         cycles_this_frame += cycles;
     }
 
-    // TODO: Track time spent in this frame, and sleep the rest until 1/60
 
     render_frame();
 
@@ -81,6 +80,7 @@ void emulate() {
 
         update();
 
+        // TODO: Track time spent in this frame, and sleep the rest until 1/60
         //sleep(1/60);    /* update runs 60 times per second */
     }
 
@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 
 
     run_tests();
+    exit(0);
 
     insert_cartridge("tetris-jp.gb");
 
@@ -124,11 +125,12 @@ void run_tests() {
 
     load_tests();
 
+    /* boot(); */
+
     boot_tests();
 
     emulate();
 
-    exit(0);
 }
 
 // IDEA: make smallest possible version of the emulator ?
