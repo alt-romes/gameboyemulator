@@ -1253,7 +1253,7 @@ const struct instruction instructions_cb[256] = {
 	{ "BIT 5, E", bit_op, (void*) 5, &registers.e },      // 0x6b
 	{ "BIT 5, H", bit_op, (void*) 5, &registers.h },      // 0x6c
 	{ "BIT 5, L", bit_op, (void*) 5, &registers.l },      // 0x6d
-	{ "BIT 5, (HL)", bit_op_from_mem, 5, &registers.hl }, // 0x6e
+	{ "BIT 5, (HL)", bit_op_from_mem, (void*) 5, &registers.hl }, // 0x6e
 	{ "BIT 5, A", bit_op, (void*) 5, &registers.a },      // 0x6f
 	{ "BIT 6, B", bit_op, (void*) 6, &registers.b },      // 0x70
 	{ "BIT 6, C", bit_op, (void*) 6, &registers.c },      // 0x71
@@ -1261,7 +1261,7 @@ const struct instruction instructions_cb[256] = {
 	{ "BIT 6, E", bit_op, (void*) 6, &registers.e },      // 0x73
 	{ "BIT 6, H", bit_op, (void*) 6, &registers.h },      // 0x74
 	{ "BIT 6, L", bit_op, (void*) 6, &registers.l },      // 0x75
-	{ "BIT 6, (HL)", bit_op_from_mem, 6, &registers.hl}, // 0x76
+	{ "BIT 6, (HL)", bit_op_from_mem, (void*) 6, &registers.hl}, // 0x76
 	{ "BIT 6, A", bit_op, (void*) 6, &registers.a },      // 0x77
 	{ "BIT 7, B", bit_op, (void*) 7, &registers.b },      // 0x78
 	{ "BIT 7, C", bit_op, (void*) 7, &registers.c },      // 0x79
@@ -1269,7 +1269,7 @@ const struct instruction instructions_cb[256] = {
 	{ "BIT 7, E", bit_op, (void*) 7, &registers.e },      // 0x7b
 	{ "BIT 7, H", bit_op, (void*) 7, &registers.h },      // 0x7c
 	{ "BIT 7, L", bit_op, (void*) 7, &registers.l },      // 0x7d
-	{ "BIT 7, (HL)", bit_op_from_mem, 7, &registers.hl }, // 0x7e
+	{ "BIT 7, (HL)", bit_op_from_mem, (void*) 7, &registers.hl }, // 0x7e
 	{ "BIT 7, A", bit_op, (void*) 7, &registers.a },      // 0x7f
 	{ "RES 0, B", NULL},      // 0x80
 	{ "RES 0, C", NULL},      // 0x81
