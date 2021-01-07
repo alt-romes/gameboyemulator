@@ -843,6 +843,46 @@ static void sra_op(unsigned char* reg) {
     clear_flag(FLAG_H | FLAG_N);
 }
 
+static void rlc_from_mem() {
+
+    rlc_op(&memory[registers.hl]);
+}
+
+static void rrc_from_mem() {
+
+    rrc_op(&memory[registers.hl]);
+}
+
+static void rl_from_mem() {
+
+    rl_op(&memory[registers.hl]);
+}
+
+static void rr_from_mem() {
+
+    rr_op(&memory[registers.hl]);
+}
+
+static void sla_from_mem() {
+
+    sla_op(&memory[registers.hl]);
+}
+
+static void sra_from_mem() {
+
+    sra_op(&memory[registers.hl]);
+}
+
+static void swap_from_mem() {
+
+    swap(&memory[registers.hl]);
+}
+
+static void srl_from_mem() {
+
+    srl_op(&memory[registers.hl]);
+}
+
 /*---- Bit Opcodes --------------*/
 
 // Tests bit of a register
@@ -871,10 +911,20 @@ static void set_op(void* n, unsigned char* reg) {
 
 static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
 
-    set_op(n,&memory[*reg_with_pointer]);
+    set_op(n, &memory[*reg_with_pointer]);
 }
 
+static void res_op(void* n, unsigned char* reg) {
 
+	unsigned char n_byte = (unsigned char) n;
+
+	*reg &= ~(1 << (n_byte));
+}
+
+static void res_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+
+    res_op(n, &memory[*reg_with_pointer]);
+}
 
 /*---- Jumps --------------------*/
 
@@ -1292,7 +1342,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RLC E", rlc_op, &registers.e},           // 0x03
 	{ "RLC H", rlc_op, &registers.h},           // 0x04
 	{ "RLC L", rlc_op, &registers.l},           // 0x05
-	{ "RLC (HL)", NULL},      // 0x06
+	{ "RLC (HL)", rlc_from_mem},      // 0x06
 	{ "RLC A", rlc_op, &registers.a},           // 0x07
 	{ "RRC B", rrc_op, &registers.b},           // 0x08
 	{ "RRC C", rrc_op, &registers.c},           // 0x09
@@ -1300,7 +1350,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RRC E", rrc_op, &registers.e},           // 0x0b
 	{ "RRC H", rrc_op, &registers.h},           // 0x0c
 	{ "RRC L", rrc_op, &registers.l},           // 0x0d
-	{ "RRC (HL)", NULL},      // 0x0e
+	{ "RRC (HL)", rrc_from_mem},      // 0x0e
 	{ "RRC A", rrc_op, &registers.a},           // 0x0f
 	{ "RL B", rl_op, &registers.b},             // 0x10
 	{ "RL C", rl_op, &registers.c},             // 0x11
@@ -1308,7 +1358,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RL E", rl_op, &registers.e},             // 0x13
 	{ "RL H", rl_op, &registers.h},             // 0x14
 	{ "RL L", rl_op, &registers.l},             // 0x15
-	{ "RL (HL)", NULL},        // 0x16
+	{ "RL (HL)", rl_from_mem},        // 0x16
 	{ "RL A", rl_op, &registers.a},             // 0x17
 	{ "RR B", rr_op, &registers.b},             // 0x18
 	{ "RR C", rr_op, &registers.c},             // 0x19
@@ -1316,7 +1366,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RR E", rr_op, &registers.e},             // 0x1b
 	{ "RR H", rr_op, &registers.h},             // 0x1c
 	{ "RR L", rr_op, &registers.l},             // 0x1d
-	{ "RR (HL)", NULL},        // 0x1e
+	{ "RR (HL)", rr_from_mem},        // 0x1e
 	{ "RR A", rr_op, &registers.a},             // 0x1f
 	{ "SLA B", sla_op, &registers.b},           // 0x20
 	{ "SLA C", sla_op, &registers.c},           // 0x21
@@ -1324,7 +1374,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SLA E", sla_op, &registers.e},           // 0x23
 	{ "SLA H", sla_op, &registers.h},           // 0x24
 	{ "SLA L", sla_op, &registers.l},           // 0x25
-	{ "SLA (HL)", NULL},      // 0x26
+	{ "SLA (HL)", sla_from_mem},      // 0x26
 	{ "SLA A", sla_op, &registers.a},           // 0x27
 	{ "SRA B", sra_op, &registers.b},           // 0x28
 	{ "SRA C", sra_op, &registers.b},           // 0x29
@@ -1332,7 +1382,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SRA E", sra_op, &registers.e},           // 0x2b
 	{ "SRA H", sra_op, &registers.h},           // 0x2c
 	{ "SRA L", sra_op, &registers.l},           // 0x2d
-	{ "SRA (HL)", NULL},      // 0x2e
+	{ "SRA (HL)", sra_from_mem},      // 0x2e
 	{ "SRA A", sra_op, &registers.a},           // 0x2f
 	{ "SWAP B", swap, &registers.b},         // 0x30
 	{ "SWAP C", swap, &registers.c},         // 0x31
@@ -1340,7 +1390,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SWAP E", swap, &registers.e},         // 0x33
 	{ "SWAP H", swap, &registers.h},         // 0x34
 	{ "SWAP L", swap, &registers.l},         // 0x35
-	{ "SWAP (HL)", NULL},    // 0x36
+	{ "SWAP (HL)", swap_from_mem},    // 0x36
 	{ "SWAP A", swap, &registers.a},         // 0x37
 	{ "SRL B", srl_op, &registers.b},           // 0x38
 	{ "SRL C", srl_op, &registers.c},           // 0x39
@@ -1348,7 +1398,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SRL E", srl_op, &registers.e},           // 0x3b
 	{ "SRL H", srl_op, &registers.h},           // 0x3c
 	{ "SRL L", srl_op, &registers.l},           // 0x3d
-	{ "SRL (HL)", NULL},      // 0x3e
+	{ "SRL (HL)", srl_from_mem},      // 0x3e
 	{ "SRL A", srl_op, &registers.a},           // 0x3f
 	{ "BIT 0, B", bit_op, (void*) 0, &registers.b },      // 0x40
 	{ "BIT 0, C", bit_op, (void*) 0, &registers.c },      // 0x41
