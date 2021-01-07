@@ -107,8 +107,8 @@ int main(int argc, char *argv[])
     }
 
 
-    run_tests();
-    exit(0);
+    /* run_tests(); */
+    /* exit(0); */
 
     insert_cartridge("tetris-jp.gb");
 
@@ -128,7 +128,7 @@ void run_tests() {
 
     load_tests();
 
-    init_gui();
+    /* init_gui(); */
 
     boot_tests();
 

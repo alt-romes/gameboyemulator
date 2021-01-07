@@ -924,7 +924,7 @@ static void res_op(void* n, unsigned char* reg) {
 	*reg &= ~(1 << (n_byte));
 }
 
-static void res_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+static void res_from_mem(void* n , unsigned char* reg_with_pointer) {
 
     res_op(n, &memory[*reg_with_pointer]);
 }
@@ -1467,70 +1467,70 @@ const struct instruction instructions_cb[256] = {
 	{ "BIT 7, L", bit_op, (void*) 7, &registers.l },      // 0x7d
 	{ "BIT 7, (HL)", bit_op_from_mem, (void*) 7, &registers.hl }, // 0x7e
 	{ "BIT 7, A", bit_op, (void*) 7, &registers.a },      // 0x7f
-	{ "RES 0, B", NULL},      // 0x80
-	{ "RES 0, C", NULL},      // 0x81
-	{ "RES 0, D", NULL},      // 0x82
-	{ "RES 0, E", NULL},      // 0x83
-	{ "RES 0, H", NULL},      // 0x84
-	{ "RES 0, L", NULL},      // 0x85
-	{ "RES 0, (HL)", NULL}, // 0x86
-	{ "RES 0, A", NULL},      // 0x87
-	{ "RES 1, B", NULL},      // 0x88
-	{ "RES 1, C", NULL},      // 0x89
-	{ "RES 1, D", NULL},      // 0x8a
-	{ "RES 1, E", NULL},      // 0x8b
-	{ "RES 1, H", NULL},      // 0x8c
-	{ "RES 1, L", NULL},      // 0x8d
-	{ "RES 1, (HL)", NULL}, // 0x8e
-	{ "RES 1, A", NULL},      // 0x8f
-	{ "RES 2, B", NULL},      // 0x90
-	{ "RES 2, C", NULL},      // 0x91
-	{ "RES 2, D", NULL},      // 0x92
-	{ "RES 2, E", NULL},      // 0x93
-	{ "RES 2, H", NULL},      // 0x94
-	{ "RES 2, L", NULL},      // 0x95
-	{ "RES 2, (HL)", NULL}, // 0x96
-	{ "RES 2, A", NULL},      // 0x97
-	{ "RES 3, B", NULL},      // 0x98
-	{ "RES 3, C", NULL},      // 0x99
-	{ "RES 3, D", NULL},      // 0x9a
-	{ "RES 3, E", NULL},      // 0x9b
-	{ "RES 3, H", NULL},      // 0x9c
-	{ "RES 3, L", NULL},      // 0x9d
-	{ "RES 3, (HL)", NULL}, // 0x9e
-	{ "RES 3, A", NULL},      // 0x9f
-	{ "RES 4, B", NULL},      // 0xa0
-	{ "RES 4, C", NULL},      // 0xa1
-	{ "RES 4, D", NULL},      // 0xa2
-	{ "RES 4, E", NULL},      // 0xa3
-	{ "RES 4, H", NULL},      // 0xa4
-	{ "RES 4, L", NULL},      // 0xa5
-	{ "RES 4, (HL)", NULL}, // 0xa6
-	{ "RES 4, A", NULL},      // 0xa7
-	{ "RES 5, B", NULL},      // 0xa8
-	{ "RES 5, C", NULL},      // 0xa9
-	{ "RES 5, D", NULL},      // 0xaa
-	{ "RES 5, E", NULL},      // 0xab
-	{ "RES 5, H", NULL},      // 0xac
-	{ "RES 5, L", NULL},      // 0xad
-	{ "RES 5, (HL)", NULL}, // 0xae
-	{ "RES 5, A", NULL},      // 0xaf
-	{ "RES 6, B", NULL},      // 0xb0
-	{ "RES 6, C", NULL},      // 0xb1
-	{ "RES 6, D", NULL},      // 0xb2
-	{ "RES 6, E", NULL},      // 0xb3
-	{ "RES 6, H", NULL},      // 0xb4
-	{ "RES 6, L", NULL},      // 0xb5
-	{ "RES 6, (HL)", NULL}, // 0xb6
-	{ "RES 6, A", NULL},      // 0xb7
-	{ "RES 7, B", NULL},      // 0xb8
-	{ "RES 7, C", NULL},      // 0xb9
-	{ "RES 7, D", NULL},      // 0xba
-	{ "RES 7, E", NULL},      // 0xbb
-	{ "RES 7, H", NULL},      // 0xbc
-	{ "RES 7, L", NULL},      // 0xbd
-	{ "RES 7, (HL)", NULL}, // 0xbe
-	{ "RES 7, A", NULL},      // 0xbf
+	{ "RES 0, B", res_op, (void*) 0, &registers.b},      // 0x80
+	{ "RES 0, C", res_op, (void*) 0, &registers.c},      // 0x81
+	{ "RES 0, D", res_op, (void*) 0, &registers.d},      // 0x82
+	{ "RES 0, E", res_op, (void*) 0, &registers.e},      // 0x83
+	{ "RES 0, H", res_op, (void*) 0, &registers.h},      // 0x84
+	{ "RES 0, L", res_op, (void*) 0, &registers.l},      // 0x85
+	{ "RES 0, (HL)", res_from_mem, (void*) 0, &registers.hl}, // 0x86
+	{ "RES 0, A", res_op, (void*) 0, &registers.a},      // 0x87
+	{ "RES 1, B", res_op, (void*) 1, &registers.b},      // 0x88
+	{ "RES 1, C", res_op, (void*) 1, &registers.c},      // 0x89
+	{ "RES 1, D", res_op, (void*) 1, &registers.d},      // 0x8a
+	{ "RES 1, E", res_op, (void*) 1, &registers.e},      // 0x8b
+	{ "RES 1, H", res_op, (void*) 1, &registers.h},      // 0x8c
+	{ "RES 1, L", res_op, (void*) 1, &registers.l},      // 0x8d
+	{ "RES 1, (HL)", res_from_mem, (void*) 1, &registers.hl}, // 0x8e
+	{ "RES 1, A", res_op, (void*) 1, &registers.a},      // 0x8f
+	{ "RES 2, B", res_op, (void*) 2, &registers.b},      // 0x90
+	{ "RES 2, C", res_op, (void*) 2, &registers.c},      // 0x91
+	{ "RES 2, D", res_op, (void*) 2, &registers.d},      // 0x92
+	{ "RES 2, E", res_op, (void*) 2, &registers.e},      // 0x93
+	{ "RES 2, H", res_op, (void*) 2, &registers.h},      // 0x94
+	{ "RES 2, L", res_op, (void*) 2, &registers.l},      // 0x95
+	{ "RES 2, (HL)", res_from_mem, (void*) 2, &registers.hl}, // 0x96
+	{ "RES 2, A", res_op, (void*) 2, &registers.a},      // 0x97
+	{ "RES 3, B", res_op, (void*) 3, &registers.b},      // 0x98
+	{ "RES 3, C", res_op, (void*) 3, &registers.c},      // 0x99
+	{ "RES 3, D", res_op, (void*) 3, &registers.d},      // 0x9a
+	{ "RES 3, E", res_op, (void*) 3, &registers.e},      // 0x9b
+	{ "RES 3, H", res_op, (void*) 3, &registers.h},      // 0x9c
+	{ "RES 3, L", res_op, (void*) 3, &registers.l},      // 0x9d
+	{ "RES 3, (HL)", res_from_mem, (void*) 3, &registers.hl}, // 0x9e
+	{ "RES 3, A", res_op, (void*) 3, &registers.a},      // 0x9f
+	{ "RES 4, B", res_op, (void*) 4, &registers.b},      // 0xa0
+	{ "RES 4, C", res_op, (void*) 4, &registers.c},      // 0xa1
+	{ "RES 4, D", res_op, (void*) 4, &registers.d},      // 0xa2
+	{ "RES 4, E", res_op, (void*) 4, &registers.e},      // 0xa3
+	{ "RES 4, H", res_op, (void*) 4, &registers.h},      // 0xa4
+	{ "RES 4, L", res_op, (void*) 4, &registers.l},      // 0xa5
+	{ "RES 4, (HL)", res_from_mem, (void*) 4, &registers.hl}, // 0xa6
+	{ "RES 4, A", res_op, (void*) 4, &registers.a},      // 0xa7
+	{ "RES 5, B", res_op, (void*) 5, &registers.b},      // 0xa8
+	{ "RES 5, C", res_op, (void*) 5, &registers.c},      // 0xa9
+	{ "RES 5, D", res_op, (void*) 5, &registers.d},      // 0xaa
+	{ "RES 5, E", res_op, (void*) 5, &registers.e},      // 0xab
+	{ "RES 5, H", res_op, (void*) 5, &registers.h},      // 0xac
+	{ "RES 5, L", res_op, (void*) 5, &registers.l},      // 0xad
+	{ "RES 5, (HL)", res_from_mem, (void*) 5, &registers.hl}, // 0xae
+	{ "RES 5, A", res_op, (void*) 5, &registers.a},      // 0xaf
+	{ "RES 6, B", res_op, (void*) 6, &registers.b},      // 0xb0
+	{ "RES 6, C", res_op, (void*) 6, &registers.c},      // 0xb1
+	{ "RES 6, D", res_op, (void*) 6, &registers.d},      // 0xb2
+	{ "RES 6, E", res_op, (void*) 6, &registers.e},      // 0xb3
+	{ "RES 6, H", res_op, (void*) 6, &registers.h},      // 0xb4
+	{ "RES 6, L", res_op, (void*) 6, &registers.l},      // 0xb5
+	{ "RES 6, (HL)", res_from_mem, (void*) 6, &registers.hl}, // 0xb6
+	{ "RES 6, A", res_op, (void*) 6, &registers.a},      // 0xb7
+	{ "RES 7, B", res_op, (void*) 7, &registers.b},      // 0xb8
+	{ "RES 7, C", res_op, (void*) 7, &registers.c},      // 0xb9
+	{ "RES 7, D", res_op, (void*) 7, &registers.d},      // 0xba
+	{ "RES 7, E", res_op, (void*) 7, &registers.e},      // 0xbb
+	{ "RES 7, H", res_op, (void*) 7, &registers.h},      // 0xbc
+	{ "RES 7, L", res_op, (void*) 7, &registers.l},      // 0xbd
+	{ "RES 7, (HL)", res_from_mem, (void*) 7, &registers.hl}, // 0xbe
+	{ "RES 7, A", res_op, (void*) 7, &registers.a},      // 0xbf
 	{ "SET 0, B", set_op, (void*) 0, &registers.b },      // 0xc0
 	{ "SET 0, C", set_op, (void*) 0, &registers.c },      // 0xc1
 	{ "SET 0, D", set_op, (void*) 0, &registers.d },      // 0xc2
