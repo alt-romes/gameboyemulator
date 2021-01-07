@@ -271,6 +271,11 @@ static void load8bit_dec_to_mem() {
     load8bit(&memory[registers.hl--], &registers.a);
 }
 
+static void load8bit_dec_from_mem() {
+
+    load8bit(&registers.a, &memory[registers.hl--]);
+}
+
 
 
 
@@ -354,6 +359,11 @@ static void sub(unsigned char* reg) {
     set_flag(FLAG_N);
 }
 
+static void sub_from_mem() {
+
+    sub(&memory[registers.hl]);
+}
+
 static void sub_operand() {
 
     unsigned char operand = read8bit_operand();
@@ -365,6 +375,24 @@ static void adc (unsigned char* regs) {
 	unsigned char value = *regs;
 	if(registers.f & FLAG_CY) value++;
 	add8bit(&value);
+}
+
+static void sbc(unsigned char* regs) {
+
+  unsigned char value = *regs;
+  if(registers.f & FLAG_CY) value--;
+  sub(&value);
+}
+
+static void sbc_from_mem() {
+
+    sbc(&memory[registers.hl]);
+}
+
+static void sbc_operand() {
+
+    unsigned char operand = read8bit_operand();
+    sbc(&operand);
 }
 
 static void adc_from_mem(unsigned char* reg_with_pointer) {
@@ -524,22 +552,22 @@ static void cp_mem(unsigned short* reg_w_pointer) {
 
 /*---- 16-Bit Arithmetic --------*/
 // TODO: probably all ALU 16 bit operations are setting the flags wrong
-
+//TODO clean up by adding an add op that does add without the register.a
 static void add16bit(unsigned short* source) {
 
-	unsigned short to_add = *source;
-	unsigned short add_bit = registers.hl + to_add;
-	registers.hl = add_bit;
+  	unsigned short to_add = *source;
+  	unsigned short add_bit = registers.hl + to_add;
+  	registers.hl = add_bit;
 
-	clear_flag(FLAG_N);
+  	clear_flag(FLAG_N);
 
-	//TODO : verify half-carry flag (from low 8 to high 8?)
+  	//TODO : verify half-carry flag (from low 8 to high 8?)
 
-	if ( (to_add & 0xFF) + (add_bit & 0xFF) > 0xFF ) set_flag(FLAG_H);
-	else clear_flag(FLAG_H);
+  	if ( (to_add & 0xFF) + (add_bit & 0xFF) > 0xFF ) set_flag(FLAG_H);
+  	else clear_flag(FLAG_H);
 
-	if (add_bit < to_add) set_flag(FLAG_CY);
-    else clear_flag(FLAG_CY);
+  	if (add_bit < to_add) set_flag(FLAG_CY);
+      else clear_flag(FLAG_CY);
 }
 
 static void inc16bit(unsigned short* reg) {
@@ -552,6 +580,38 @@ static void dec16bit(unsigned short* reg) {
     (*reg)--;
 }
 
+
+static void add16bit_sp_operand() {
+
+    unsigned char operand = read8bit_signed_operand();
+    unsigned char lo = registers.sp & 0xFF;
+    unsigned char hi = registers.sp & 0xFF00;
+
+    //half carry flag
+    if ((lo & 0xF) + (operand & 0xF) > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    unsigned char op_plus_lo = operand + lo;
+
+    // carry flag
+    if (op_plus_lo < lo) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+
+    if(registers.f & FLAG_CY) {
+        //half carry flag
+        if ((hi & 0xF) + (1 & 0xF) > 0xF) set_flag(FLAG_H);
+        else clear_flag(FLAG_H);
+
+        unsigned char carry_plus_hi = hi + 1;
+
+        // carry flag
+        if (carry_plus_hi < hi) set_flag(FLAG_CY);
+        else clear_flag(FLAG_CY);
+    }
+
+    registers.sp += operand;
+    clear_flag(FLAG_Z | FLAG_N);
+}
 
 
 /*---- Miscellaneous ------------*/
@@ -581,7 +641,6 @@ static void complement(){
     registers.a = ~registers.a;
     set_flag(FLAG_N);
     set_flag(FLAG_H);
-
 }
 
 static void swap (unsigned char* reg) {
@@ -596,6 +655,24 @@ static void stop_cpu() {
     stopped = 1;
 }
 
+static void ccf_op() {
+
+    unsigned char flag_cy_value = registers.f & FLAG_CY;
+
+    if(flag_cy_value)
+      clear_flag(FLAG_CY);
+    else
+      set_flag(FLAG_CY);
+
+    clear_flag(FLAG_N | FLAG_H);
+}
+
+static void scf_op() {
+
+    set_flag(FLAG_CY);
+
+    clear_flag(FLAG_N | FLAG_H);
+}
 
 
 /*---- Rotates & Shifts ---------*/
@@ -666,6 +743,8 @@ static void rr_op(unsigned char* reg) {
 
     if(carry_flag_value)
       *reg = *reg | 0x80;
+    else
+      *reg = *reg & 0x7F;
 
     if(right_most_bit)
       set_flag(FLAG_CY);
@@ -695,7 +774,7 @@ static void rlc_op(unsigned char* reg) {
       *reg = *reg | 0x1;
       set_flag(FLAG_CY);
     }else{
-      *reg = *reg | 0x0;
+      *reg = *reg & 0xFE;
       clear_flag(FLAG_CY);
     }
 
@@ -712,6 +791,99 @@ static void rlca_op() {
     rlc_op(&registers.a);
 
     clear_flag(FLAG_Z);
+}
+
+static void rrc_op(unsigned char* reg) {
+    unsigned char right_most_bit = 0x1 & *reg;
+    *reg = *reg>>1;
+
+    if(right_most_bit){
+      *reg = *reg | 0x80;
+      set_flag(FLAG_CY);
+    }else{
+      *reg = *reg & 0x7F;
+      clear_flag(FLAG_CY);
+    }
+
+    if(*reg)
+      set_flag(FLAG_Z);
+    else
+      clear_flag(FLAG_Z);
+
+    clear_flag(FLAG_H | FLAG_N);
+}
+
+static void rrca_op() {
+
+    rrc_op(&registers.a);
+
+    clear_flag(FLAG_Z);
+}
+
+static void sra_op(unsigned char* reg) {
+    unsigned char left_most_bit = 0x80 & *reg;
+    unsigned char right_most_bit = 0x1 & *reg;
+    *reg = *reg>>1;
+
+    if(right_most_bit)
+      set_flag(FLAG_CY);
+    else
+      clear_flag(FLAG_CY);
+
+    if(left_most_bit) {
+      *reg = *reg | 0x1;
+      set_flag(FLAG_CY);
+    }else{
+      *reg = *reg & 0xFE;
+      clear_flag(FLAG_CY);
+    }
+
+    if(*reg)
+      set_flag(FLAG_Z);
+    else
+      clear_flag(FLAG_Z);
+
+    clear_flag(FLAG_H | FLAG_N);
+}
+
+static void rlc_from_mem() {
+
+    rlc_op(&memory[registers.hl]);
+}
+
+static void rrc_from_mem() {
+
+    rrc_op(&memory[registers.hl]);
+}
+
+static void rl_from_mem() {
+
+    rl_op(&memory[registers.hl]);
+}
+
+static void rr_from_mem() {
+
+    rr_op(&memory[registers.hl]);
+}
+
+static void sla_from_mem() {
+
+    sla_op(&memory[registers.hl]);
+}
+
+static void sra_from_mem() {
+
+    sra_op(&memory[registers.hl]);
+}
+
+static void swap_from_mem() {
+
+    swap(&memory[registers.hl]);
+}
+
+static void srl_from_mem() {
+
+    srl_op(&memory[registers.hl]);
 }
 
 /*---- Bit Opcodes --------------*/
@@ -742,10 +914,20 @@ static void set_op(void* n, unsigned char* reg) {
 
 static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
 
-    set_op(n,&memory[*reg_with_pointer]);
+    set_op(n, &memory[*reg_with_pointer]);
 }
 
+static void res_op(void* n, unsigned char* reg) {
 
+	unsigned char n_byte = (unsigned char) n;
+
+	*reg &= ~(1 << (n_byte));
+}
+
+static void res_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+
+    res_op(n, &memory[*reg_with_pointer]);
+}
 
 /*---- Jumps --------------------*/
 
@@ -891,7 +1073,7 @@ const struct instruction instructions[256] = {
 	{ "INC C", inc8bit, &registers.c },                        // 0x0c
 	{ "DEC C", dec8bit, &registers.c},                        // 0x0d
 	{ "LD C, 0x%02X", load8bit_operand, &registers.c },                 // 0x0e
-	{ "RRCA", NULL},                         // 0x0f
+	{ "RRCA", rrca_op},                         // 0x0f
 	{ "STOP", stop_cpu},                         // 0x10
 	{ "LD DE, 0x%04X", load16bit_operand, &registers.de },                // 0x11
 	{ "LD (DE), A", load8bit_to_mem, &registers.de, &registers.a},                   // 0x12
@@ -931,15 +1113,15 @@ const struct instruction instructions[256] = {
 	{ "INC (HL)", inc8bit_from_mem},                     // 0x34
 	{ "DEC (HL)", dec8bit_from_mem},                     // 0x35
 	{ "LD (HL), 0x%02X", load8bit_to_mem_from_operand, &registers.hl},              // 0x36
-	{ "SCF", NULL},                          // 0x37
+	{ "SCF", scf_op},                          // 0x37
 	{ "JR C, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 1},                 // 0x38
 	{ "ADD HL, SP", add16bit, &registers.hl, &registers.sp},                   // 0x39
-	{ "LDD A, (HL)", NULL},                  // 0x3a
+	{ "LDD A, (HL)", load8bit_dec_from_mem},                  // 0x3a
 	{ "DEC SP", dec16bit, &registers.sp},                       // 0x3b
 	{ "INC A", inc8bit, &registers.a},                        // 0x3c
 	{ "DEC A", dec8bit, &registers.a},                        // 0x3d
 	{ "LD A, 0x%02X", load8bit_operand, &registers.a},                 // 0x3e
-	{ "CCF", NULL},                          // 0x3f
+	{ "CCF", ccf_op},                          // 0x3f
 	{ "LD B, B", load8bit, &registers.b, &registers.b},                      // 0x40
 	{ "LD B, C", load8bit, &registers.b, &registers.c},                      // 0x41
 	{ "LD B, D", load8bit, &registers.b, &registers.d},                      // 0x42
@@ -1026,16 +1208,16 @@ const struct instruction instructions[256] = {
 	{ "SUB E", sub, &registers.e},                        // 0x93
 	{ "SUB H", sub, &registers.h},                        // 0x94
 	{ "SUB L", sub, &registers.l},                        // 0x95
-	{ "SUB (HL)", NULL},                     // 0x96
+	{ "SUB (HL)", sub_from_mem},                     // 0x96
 	{ "SUB A", sub, &registers.a},                        // 0x97
-	{ "SBC B", NULL},                        // 0x98
-	{ "SBC C", NULL},                        // 0x99
-	{ "SBC D", NULL},                        // 0x9a
-	{ "SBC E", NULL},                        // 0x9b
-	{ "SBC H", NULL},                        // 0x9c
-	{ "SBC L", NULL},                        // 0x9d
-	{ "SBC (HL)", NULL},                     // 0x9e
-	{ "SBC A", NULL},                        // 0x9f
+	{ "SBC B", sbc, &registers.b},                        // 0x98
+	{ "SBC C", sbc, &registers.c},                        // 0x99
+	{ "SBC D", sbc, &registers.d},                        // 0x9a
+	{ "SBC E", sbc, &registers.e},                        // 0x9b
+	{ "SBC H", sbc, &registers.h},                        // 0x9c
+	{ "SBC L", sbc, &registers.l},                        // 0x9d
+	{ "SBC (HL)", sbc_from_mem},                     // 0x9e
+	{ "SBC A", sbc, &registers.a},                        // 0x9f
 	{ "AND B", and_reg, &registers.b},                        // 0xa0
 	{ "AND C", and_reg, &registers.c},                        // 0xa1
 	{ "AND D", and_reg, &registers.d},                        // 0xa2
@@ -1098,7 +1280,7 @@ const struct instruction instructions[256] = {
 	{ "UNKNOWN", NULL},                      // 0xdb
 	{ "CALL C, 0x%04X", call_condition, (void*) FLAG_CY, (void*) 1},               // 0xdc
 	{ "UNKNOWN", NULL},                      // 0xdd
-	{ "SBC 0x%02X", NULL},                   // 0xde
+	{ "SBC 0x%02X", sbc_operand},                   // 0xde
 	{ "RST 0x18",  rst, (void*) 0x18},                     // 0xdf
 	{ "LD (0xFF00 + 0x%02X), A", load8bit_to_io_mem_operand, &registers.a},      // 0xe0
 	{ "POP HL", pop_op, &registers.h, &registers.l},                       // 0xe1
@@ -1108,7 +1290,7 @@ const struct instruction instructions[256] = {
 	{ "PUSH HL", push_op, &registers.h, &registers.l},                      // 0xe5
 	{ "AND 0x%02X", and_operand},                   // 0xe6
 	{ "RST 0x20",  rst, (void*) 0x20},                     // 0xe7
-	{ "ADD SP,0x%02X", NULL},                // 0xe8
+	{ "ADD SP,0x%02X", add16bit_sp_operand},                // 0xe8
 	{ "JP HL", jump,&registers.hl},                        // 0xe9
 	{ "LD (0x%04X), A", load8bit_to_mem_operand, &registers.a},               // 0xea
 	{ "UNKNOWN", NULL},                      // 0xeb
@@ -1163,23 +1345,23 @@ const struct instruction instructions_cb[256] = {
 	{ "RLC E", rlc_op, &registers.e},           // 0x03
 	{ "RLC H", rlc_op, &registers.h},           // 0x04
 	{ "RLC L", rlc_op, &registers.l},           // 0x05
-	{ "RLC (HL)", NULL},      // 0x06
+	{ "RLC (HL)", rlc_from_mem},      // 0x06
 	{ "RLC A", rlc_op, &registers.a},           // 0x07
-	{ "RRC B", NULL},           // 0x08
-	{ "RRC C", NULL},           // 0x09
-	{ "RRC D", NULL},           // 0x0a
-	{ "RRC E", NULL},           // 0x0b
-	{ "RRC H", NULL},           // 0x0c
-	{ "RRC L", NULL},           // 0x0d
-	{ "RRC (HL)", NULL},      // 0x0e
-	{ "RRC A", NULL},           // 0x0f
+	{ "RRC B", rrc_op, &registers.b},           // 0x08
+	{ "RRC C", rrc_op, &registers.c},           // 0x09
+	{ "RRC D", rrc_op, &registers.d},           // 0x0a
+	{ "RRC E", rrc_op, &registers.e},           // 0x0b
+	{ "RRC H", rrc_op, &registers.h},           // 0x0c
+	{ "RRC L", rrc_op, &registers.l},           // 0x0d
+	{ "RRC (HL)", rrc_from_mem},      // 0x0e
+	{ "RRC A", rrc_op, &registers.a},           // 0x0f
 	{ "RL B", rl_op, &registers.b},             // 0x10
 	{ "RL C", rl_op, &registers.c},             // 0x11
 	{ "RL D", rl_op, &registers.d},             // 0x12
 	{ "RL E", rl_op, &registers.e},             // 0x13
 	{ "RL H", rl_op, &registers.h},             // 0x14
 	{ "RL L", rl_op, &registers.l},             // 0x15
-	{ "RL (HL)", NULL},        // 0x16
+	{ "RL (HL)", rl_from_mem},        // 0x16
 	{ "RL A", rl_op, &registers.a},             // 0x17
 	{ "RR B", rr_op, &registers.b},             // 0x18
 	{ "RR C", rr_op, &registers.c},             // 0x19
@@ -1187,7 +1369,7 @@ const struct instruction instructions_cb[256] = {
 	{ "RR E", rr_op, &registers.e},             // 0x1b
 	{ "RR H", rr_op, &registers.h},             // 0x1c
 	{ "RR L", rr_op, &registers.l},             // 0x1d
-	{ "RR (HL)", NULL},        // 0x1e
+	{ "RR (HL)", rr_from_mem},        // 0x1e
 	{ "RR A", rr_op, &registers.a},             // 0x1f
 	{ "SLA B", sla_op, &registers.b},           // 0x20
 	{ "SLA C", sla_op, &registers.c},           // 0x21
@@ -1195,23 +1377,23 @@ const struct instruction instructions_cb[256] = {
 	{ "SLA E", sla_op, &registers.e},           // 0x23
 	{ "SLA H", sla_op, &registers.h},           // 0x24
 	{ "SLA L", sla_op, &registers.l},           // 0x25
-	{ "SLA (HL)", NULL},      // 0x26
+	{ "SLA (HL)", sla_from_mem},      // 0x26
 	{ "SLA A", sla_op, &registers.a},           // 0x27
-	{ "SRA B", NULL},           // 0x28
-	{ "SRA C", NULL},           // 0x29
-	{ "SRA D", NULL},           // 0x2a
-	{ "SRA E", NULL},           // 0x2b
-	{ "SRA H", NULL},           // 0x2c
-	{ "SRA L", NULL},           // 0x2d
-	{ "SRA (HL)", NULL},      // 0x2e
-	{ "SRA A", NULL},           // 0x2f
+	{ "SRA B", sra_op, &registers.b},           // 0x28
+	{ "SRA C", sra_op, &registers.b},           // 0x29
+	{ "SRA D", sra_op, &registers.d},           // 0x2a
+	{ "SRA E", sra_op, &registers.e},           // 0x2b
+	{ "SRA H", sra_op, &registers.h},           // 0x2c
+	{ "SRA L", sra_op, &registers.l},           // 0x2d
+	{ "SRA (HL)", sra_from_mem},      // 0x2e
+	{ "SRA A", sra_op, &registers.a},           // 0x2f
 	{ "SWAP B", swap, &registers.b},         // 0x30
 	{ "SWAP C", swap, &registers.c},         // 0x31
 	{ "SWAP D", swap, &registers.d},         // 0x32
 	{ "SWAP E", swap, &registers.e},         // 0x33
 	{ "SWAP H", swap, &registers.h},         // 0x34
 	{ "SWAP L", swap, &registers.l},         // 0x35
-	{ "SWAP (HL)", NULL},    // 0x36
+	{ "SWAP (HL)", swap_from_mem},    // 0x36
 	{ "SWAP A", swap, &registers.a},         // 0x37
 	{ "SRL B", srl_op, &registers.b},           // 0x38
 	{ "SRL C", srl_op, &registers.c},           // 0x39
@@ -1219,7 +1401,7 @@ const struct instruction instructions_cb[256] = {
 	{ "SRL E", srl_op, &registers.e},           // 0x3b
 	{ "SRL H", srl_op, &registers.h},           // 0x3c
 	{ "SRL L", srl_op, &registers.l},           // 0x3d
-	{ "SRL (HL)", NULL},      // 0x3e
+	{ "SRL (HL)", srl_from_mem},      // 0x3e
 	{ "SRL A", srl_op, &registers.a},           // 0x3f
 	{ "BIT 0, B", bit_op, (void*) 0, &registers.b },      // 0x40
 	{ "BIT 0, C", bit_op, (void*) 0, &registers.c },      // 0x41
@@ -1520,7 +1702,7 @@ static int execute() {
 
         if (debugger)
             printf("%s -> 0x%x\n", instruction.disassembly, opcode);
-        
+
         instruction.execute(instruction.exec_argv1, instruction.exec_argv2);
 
         if (debugger)
@@ -1543,9 +1725,8 @@ int cpu() {
 
     if (stopped)    /* when the CPU is stopped, just keep updating the window (return random number of cycles) */
         return 2;
-
     int cycles = 0;
-    
+
     if (!halted)
          cycles = execute();
     else
