@@ -298,6 +298,9 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
     *lo_reg = memory[registers.sp++];
     *hi_reg = memory[registers.sp++];
+
+    if (lo_reg == &registers.f)
+        registers.f &= 0xf0;
 }
 
 static void load16bit_sp_operand_offset() {
