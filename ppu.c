@@ -18,6 +18,10 @@
 #include <GLFW/glfw3.h>
 #endif
 
+#ifdef _WIN32
+#include <SDL.h>
+#endif
+
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
 static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
@@ -155,6 +159,12 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 }
 #endif
 
+#ifdef _WIN32
+SDL_Window* window = NULL;
+SDL_Renderer * renderer = NULL;
+SDL_Texture * texture = NULL;
+SDL_Event e;
+#endif
 static void init_gui() {
 #ifdef __APPLE__
     /* Initialize the library */
@@ -295,6 +305,15 @@ static void init_gui() {
 
     glClearColor(0, 0, 0, 1);
 #endif
+
+#ifdef _WIN32
+    SDL_Init( SDL_INIT_VIDEO );
+    //Create window
+    window = SDL_CreateWindow( "Gameboy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+    renderer = SDL_CreateRenderer(window, -1, 0);
+    //Get window surface
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX8, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
+#endif
     graphics_enabled = 1;
 }
 
@@ -329,6 +348,26 @@ static void render_frame() {
             glfwTerminate();
             exit(0);
         }
+#endif
+
+#ifdef _WIN32
+        SDL_UpdateTexture(texture, NULL, scanlinesbuffer, SCREEN_WIDTH);
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderPresent(renderer);
+
+        if( SDL_PollEvent( &e ) != 0 ) {
+           //User requests quit
+           if( e.type == SDL_QUIT ) {
+               SDL_DestroyWindow( window );
+               window = NULL;
+               SDL_DestroyRenderer(renderer);
+               SDL_DestroyTexture(texture);
+               SDL_Quit();
+               exit(0);
+           }
+        }
+
 #endif
 
     }
