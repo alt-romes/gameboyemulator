@@ -318,6 +318,16 @@ static void load16bit_sp_operand_offset() {
     clear_flag(FLAG_Z | FLAG_N);
 }
 
+static void load16bit_sp_to_mem() {
+    unsigned short operand = read16bit_operand();
+    unsigned char lo = registers.sp & 0xFF;
+    unsigned char hi = registers.sp & 0xFF00;
+
+    load16bit_to_mem(operand, lo);
+    load16bit_to_mem(operand+1, hi);
+
+}
+
 /*---- 8-Bit ALU ----------------*/
 
 static void add8bit(unsigned char* s) {
@@ -614,6 +624,7 @@ static void add16bit_sp_operand() {
 }
 
 
+
 /*---- Miscellaneous ------------*/
 
 static void nop () {
@@ -886,6 +897,32 @@ static void srl_from_mem() {
     srl_op(&memory[registers.hl]);
 }
 
+static void daa_op(){
+    unsigned char correction = 0;
+    unsigned char flag_cy_value = FLAG_CY & registers.f;
+    unsigned char flag_h_value = FLAG_H & registers.f;
+    unsigned char flag_n_value = FLAG_N & registers.f;
+
+    if (flag_h_value || (!flag_n_value && (registers.a & 0xF) > 9))
+        correction |= 0x6;
+
+    if (flag_cy_value || (!flag_n_value && registers.a > 0x99)) {
+        correction |= 0x60;
+        set_flag(FLAG_CY);
+    } else
+        clear_flag(FLAG_CY);
+
+    registers.a += flag_n_value ? -correction : correction;
+
+    if(registers.a)
+        clear_flag(FLAG_Z);
+    else
+        set_flag(FLAG_Z);
+
+    clear_flag(FLAG_H);
+
+}
+
 /*---- Bit Opcodes --------------*/
 
 // Tests bit of a register
@@ -1066,7 +1103,7 @@ const struct instruction instructions[256] = {
 	{ "DEC B", dec8bit, &registers.b},                        // 0x05
 	{ "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
 	{ "RLCA", rlca_op},                         // 0x07
-	{ "LD (0x%04X), SP", NULL},              // 0x08
+	{ "LD (0x%04X), SP", load16bit_sp_to_mem},              // 0x08
 	{ "ADD HL, BC", add16bit, &registers.hl, &registers.bc},                   // 0x09
 	{ "LD A, (BC)", load8bit_from_mem, &registers.a, &registers.bc},                   // 0x0a
 	{ "DEC BC", dec16bit, &registers.bc},                       // 0x0b
@@ -1097,7 +1134,7 @@ const struct instruction instructions[256] = {
 	{ "INC H", inc8bit, &registers.h},                        // 0x24
 	{ "DEC H", dec8bit, &registers.h},                        // 0x25
 	{ "LD H, 0x%02X", load8bit_operand, &registers.h},                 // 0x26
-	{ "DAA", NULL},                          // 0x27
+	{ "DAA", daa_op},                          // 0x27
 	{ "JR Z, 0x%02X", jump_condition_add_operand, (void*) FLAG_Z, (void*) 1},                 // 0x28
 	{ "ADD HL, HL", add16bit, &registers.hl},                   // 0x29
 	{ "LDI A, (HL)", load8bit_inc_from_mem},                  // 0x2a
