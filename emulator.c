@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 unsigned long debugger = 0;
 
@@ -78,10 +79,14 @@ void emulate() {
 
     while (1) {
 
+        clock_t clock_start = clock();
+
         update();
 
-        // TODO: Track time spent in this frame, and sleep the rest until 1/60
-        //sleep(1/60);    /* update runs 60 times per second */
+        clock_t clock_end = clock();
+        double time_taken = ((double) (clock_end-clock_start))/CLOCKS_PER_SEC;
+
+        sleep((1/60)-time_taken);
     }
 
 }

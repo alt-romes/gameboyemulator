@@ -136,7 +136,7 @@ void load_roms() {
 
 void load_tests() {
 
-    FILE* test = fopen("tests/cpu_instrs/individual/03-op sp,hl.gb", "rb");
+    FILE* test = fopen("tests/cpu_instrs/individual/01-special.gb", "rb");
     fread(memory, sizeof(unsigned char), 0x8000, test);
 
     fclose(test);
