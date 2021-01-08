@@ -312,7 +312,7 @@ static void init_gui() {
     window = SDL_CreateWindow( "Gameboy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
     renderer = SDL_CreateRenderer(window, -1, 0);
     //Get window surface
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX8, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
 #endif
     graphics_enabled = 1;
 }
@@ -351,7 +351,16 @@ static void render_frame() {
 #endif
 
 #ifdef _WIN32
-        SDL_UpdateTexture(texture, NULL, scanlinesbuffer, SCREEN_WIDTH);
+        unsigned int pixels [SCREEN_WIDTH*SCREEN_HEIGHT];
+        for (int i=0; i<sizeof(scanlinesbuffer);i++){
+            unsigned int  aux = scanlinesbuffer[i];
+            pixels[i] =  0xFF00000000;
+            for(int j = 0; j<3;j++){
+                pixels[i] |= (aux << j*8);
+            }
+        }
+        //memset(pixels, 255, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(int));
+        SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(int));
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
