@@ -93,52 +93,44 @@ void emulate() {
 
 static void boot() {
 
-    load_roms();
 
-    init_gui();
 
 }
-
-void run_tests();
 
 int main(int argc, char *argv[])
 {
 
+    char* testing = NULL;
     if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {
 
         if (argc > 2) debug_from = atoi(argv[2]);
         else debug_from = 0;
-
     }
+    else if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='t' && argc > 2)
+        testing = argv[2];
 
-
-    /* run_tests(); */
-    /* exit(0); */
 
     insert_cartridge("tetris-jp.gb");
 
+    init_gui();
 
-    boot();
+    load_roms();
+
+
+
+    if (testing != NULL) {
+
+        // TODO: To run the whole "cpu_instr" test, i need to implement MBC1
+        // http://slack.net/~ant/old/gb-tests/
+        load_tests(testing);
+
+        boot_tests();
+    }
+
 
     emulate();
 
     return 0;
-}
-
-void run_tests() {
-
-    // TODO: To run the whole "cpu_instr" test, i need to implement MBC1
-
-    // http://slack.net/~ant/old/gb-tests/
-
-    load_tests();
-
-    /* init_gui(); */
-
-    boot_tests();
-
-    emulate();
-
 }
 
 // IDEA: make smallest possible version of the emulator ?

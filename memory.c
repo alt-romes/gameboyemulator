@@ -134,9 +134,9 @@ void load_roms() {
     memcpy(memory+256, rom+256, 0x8000-256);
 }
 
-void load_tests() {
+void load_tests(char* testpath) {
 
-    FILE* test = fopen("tests/cpu_instrs/individual/01-special.gb", "rb");
+    FILE* test = fopen(testpath, "rb");
     fread(memory, sizeof(unsigned char), 0x8000, test);
 
     fclose(test);

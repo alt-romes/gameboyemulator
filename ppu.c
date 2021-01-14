@@ -540,24 +540,21 @@ void ppu(int cycles) {
 
         scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
-        unsigned char current_scanline = *lcd_ly;
-
         /* VBLANK is confirmed when LY >= 144, the resolution is 160x144,
          * but since the first scanline is 0, the scanline number 144 is actually the 145th.
          *
          * It means the cpu can use the VRAM without worrying, because it's not being used.
          * (Scanlines >= 144 and <= 153 are +invisible scanlines')
          */
-        if (current_scanline == 144)
+        if (*lcd_ly == 144)
             request_interrupt(VBLANK_INTERRUPT);
 
-        else if (current_scanline > 153) /* if scanline goes above 153, reset to 0 */
-            current_scanline = 0;
+        else if (*lcd_ly > 153) /* if scanline goes above 153, reset to -1 (0 in next iteration) */
+            *lcd_ly = -1;
 
-        else if (current_scanline < 144)
+        else if (*lcd_ly < 144)
             draw_scanline();
 
     }
-
 
 }
