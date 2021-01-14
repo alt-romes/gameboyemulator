@@ -510,10 +510,10 @@ static void inc8bit_from_mem() {
 
 static void dec8bit(unsigned char* reg) {
 
-    if ( (1 & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H);
-    else clear_flag(FLAG_H);
-
     (*reg)--;
+
+    if ( ((*reg) & 0xF) + (1 & 0xF) > 0xF ) set_flag(FLAG_H); // If after decrementing, the addition overflows the lower nibble, then the subtraction had to borrow from the upper nibble 
+    else clear_flag(FLAG_H);
 
     if (*reg==0) set_flag(FLAG_Z);
     else clear_flag(FLAG_Z);
@@ -1720,6 +1720,7 @@ static void process_interrupts() {
 
 static int execute() {
 
+    printf("A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X SP: %04X PC: 00:%04X (%02X %02X %02X %02X)\n", registers.a, registers.f, registers.b, registers.c, registers.d, registers.e, registers.h, registers.l, registers.sp, registers.pc, memory[registers.pc], memory[registers.pc+1], memory[registers.pc+2], memory[registers.pc+3]);
 
     unsigned char opcode = memory[registers.pc++];
 

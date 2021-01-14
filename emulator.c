@@ -110,8 +110,12 @@ int main(int argc, char *argv[])
 
         testing = argv[2];
 
-        if (argc > 3 && argv[3][0]=='-' && argv[3][1]=='d')
-            debug_from = 0x100;
+        if (argc > 3 && argv[3][0]=='-' && argv[3][1]=='d') {
+
+            if (argc > 4) debug_from = atoi(argv[4]);
+            else debug_from = 0x100;
+        }
+
     }
 
 

@@ -55,5 +55,5 @@ test:
 	./emulator -t $(TESTPATH)
 
 dt:
-	./emulator -t $(TESTPATH) -d
+	./emulator -t $(TESTPATH) -d $(DEBUG)
 
