@@ -36,7 +36,7 @@ ifeq ($(TEST), 10)
 	TESTPATH = "tests/cpu_instrs/individual/10-bit ops.gb"
 endif
 ifeq ($(TEST), 11)
-	TESTPATH = "tests/cpu_instrs/individual/11-op a,\(hl\).gb"
+	TESTPATH = "tests/cpu_instrs/individual/11-op a,(hl).gb"
 endif
 
 emulator: emulator.c cpu.c memory.c ppu.c

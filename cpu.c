@@ -365,8 +365,17 @@ static void add8bit_operand() {
 
 static void sub(unsigned char* reg) {
 
-    unsigned char complement_to_2 = ~(*reg) + 1;
-    add8bit(&complement_to_2);
+    registers.a -= *reg;
+    
+    if ( (registers.a & 0xF) + (*reg & 0xF) > 0xF ) set_flag(FLAG_H); // Half carry if adding back the subtracted number changes the upper nibble
+    else clear_flag(FLAG_H);
+
+    if (registers.a) clear_flag(FLAG_Z);
+    else set_flag(FLAG_Z);
+
+    if ( ((registers.a + *reg) & 0xFF) < registers.a ) set_flag(FLAG_CY); // Carry if subtraction is bigger than original number
+    else clear_flag(FLAG_CY);
+    
     set_flag(FLAG_N);
 }
 
@@ -381,7 +390,7 @@ static void sub_operand() {
     sub(&operand);
 }
 
-static void adc (unsigned char* regs) {
+static void adc(unsigned char* regs) {
 
     unsigned char value = *regs;
     if(registers.f & FLAG_CY) value++;
@@ -541,7 +550,8 @@ static void cp_op(unsigned char* reg) {
 
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
-    if (((registers.a & 0xF) - (s & 0xF)) > (registers.a & 0xF)) set_flag(FLAG_H);
+    // check if adding back the number subtracted alters the upper nibble
+    if ( (cp_a & 0xF) + (s & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
     // carry flag
@@ -563,22 +573,31 @@ static void cp_mem(unsigned short* reg_w_pointer) {
 
 /*---- 16-Bit Arithmetic --------*/
 // TODO: probably all ALU 16 bit operations are setting the flags wrong
-//TODO clean up by adding an add op that does add without the register.a
 static void add16bit(unsigned short* source) {
 
-    unsigned short to_add = *source;
-    unsigned short add_bit = registers.hl + to_add;
-    registers.hl = add_bit;
+    // Add 16 bits are two 8 bit adds
+    // First, add low register L with low eight bits of source.
+    // Then, add high register H with high eight bits of source, + carry from previous 
 
-    clear_flag(FLAG_N);
-
-    //TODO : verify half-carry flag (from low 8 to high 8?)
-
-    if ( (to_add & 0xFF) + (add_bit & 0xFF) > 0xFF ) set_flag(FLAG_H);
+    if ( (registers.l & 0xF) + (*source & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
-    if (add_bit < to_add) set_flag(FLAG_CY);
+    registers.l += *source & 0xFF;
+    
+    if ( registers.l < (*source & 0xFF) ) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
+
+    unsigned char carry = (registers.f & FLAG_CY ? 1 : 0);
+
+    if ( (registers.h & 0xF) + (((*source >> 8) + carry) & 0xF) > 0xF ) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    registers.h += (*source >> 8) + carry; // ADC to high byte
+
+    if ( registers.h < *source >> 8 ) set_flag (FLAG_CY);
+    else clear_flag(FLAG_CY);
+
+    clear_flag(FLAG_N);
 }
 
 static void inc16bit(unsigned short* reg) {
@@ -775,7 +794,9 @@ static void rra_op() {
 
     rr_op(&registers.a);
 
-    clear_flag(FLAG_CY);
+    clear_flag(FLAG_Z);
+    clear_flag(FLAG_N);
+    clear_flag(FLAG_H);
 }
 
 static void rlc_op(unsigned char* reg) {
@@ -1720,7 +1741,9 @@ static void process_interrupts() {
 
 static int execute() {
 
-    printf("A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X SP: %04X PC: 00:%04X (%02X %02X %02X %02X)\n", registers.a, registers.f, registers.b, registers.c, registers.d, registers.e, registers.h, registers.l, registers.sp, registers.pc, memory[registers.pc], memory[registers.pc+1], memory[registers.pc+2], memory[registers.pc+3]);
+    /* printf("A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X SP: %04X PC: 00:%04X (%02X %02X %02X %02X)\n", registers.a, registers.f, registers.b, registers.c, registers.d, registers.e, registers.h, registers.l, registers.sp, registers.pc, memory[registers.pc], memory[registers.pc+1], memory[registers.pc+2], memory[registers.pc+3]); */
+
+    /* (*lcd_ly) = 0x90; // Stubbed for testing purposes; */
 
     unsigned char opcode = memory[registers.pc++];
 
