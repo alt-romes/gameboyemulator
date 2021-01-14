@@ -611,21 +611,21 @@ static void add16bit(unsigned short* source) {
 
     if ( (registers.l & 0xF) + (*source & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
+    
+    if ( registers.l + (*source & 0xFF) > 0xFF ) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
 
     registers.l += *source & 0xFF;
-    
-    if ( registers.l < (*source & 0xFF) ) set_flag(FLAG_CY);
-    else clear_flag(FLAG_CY);
 
     unsigned char carry = (registers.f & FLAG_CY ? 1 : 0);
 
-    if ( (registers.h & 0xF) + (((*source >> 8) + carry) & 0xF) > 0xF ) set_flag(FLAG_H);
+    if ( (registers.h & 0xF) + ((*source >> 8) & 0xF) + carry > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
-    registers.h += (*source >> 8) + carry; // ADC to high byte
-
-    if ( registers.h < *source >> 8 ) set_flag (FLAG_CY);
+    if ( registers.h + (*source >> 8) + carry > 0xFF ) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
+
+    registers.h = registers.h + (*source >> 8) + carry; // ADC to high byte
 
     clear_flag(FLAG_N);
 }
@@ -1156,7 +1156,7 @@ const struct instruction instructions[256] = {
     { "LD B, 0x%02X", load8bit_operand, &registers.b },                 // 0x06
     { "RLCA", rlca_op},                         // 0x07
     { "LD (0x%04X), SP", load16bit_sp_to_mem},              // 0x08
-    { "ADD HL, BC", add16bit, &registers.hl, &registers.bc},                   // 0x09
+    { "ADD HL, BC", add16bit, &registers.bc},                   // 0x09
     { "LD A, (BC)", load8bit_from_mem, &registers.a, &registers.bc},                   // 0x0a
     { "DEC BC", dec16bit, &registers.bc},                       // 0x0b
     { "INC C", inc8bit, &registers.c },                        // 0x0c
@@ -1172,7 +1172,7 @@ const struct instruction instructions[256] = {
     { "LD D, 0x%02X", load8bit_operand, &registers.d},                 // 0x16
     { "RLA", rla_op},                          // 0x17
     { "JR 0x%02X", jump_add_operand},                    // 0x18
-    { "ADD HL, DE", add16bit, &registers.hl, &registers.de},                   // 0x19
+    { "ADD HL, DE", add16bit, &registers.de},                   // 0x19
     { "LD A, (DE)", load8bit_from_mem, &registers.a, &registers.de },                   // 0x1a
     { "DEC DE", dec16bit, &registers.de},                       // 0x1b
     { "INC E", inc8bit, &registers.e},                        // 0x1c
@@ -1204,7 +1204,7 @@ const struct instruction instructions[256] = {
     { "LD (HL), 0x%02X", load8bit_to_mem_from_operand, &registers.hl},              // 0x36
     { "SCF", scf_op},                          // 0x37
     { "JR C, 0x%02X", jump_condition_add_operand, (void*) FLAG_CY, (void*) 1},                 // 0x38
-    { "ADD HL, SP", add16bit, &registers.hl, &registers.sp},                   // 0x39
+    { "ADD HL, SP", add16bit, &registers.sp},                   // 0x39
     { "LDD A, (HL)", load8bit_dec_from_mem},                  // 0x3a
     { "DEC SP", dec16bit, &registers.sp},                       // 0x3b
     { "INC A", inc8bit, &registers.a},                        // 0x3c
