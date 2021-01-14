@@ -106,8 +106,13 @@ int main(int argc, char *argv[])
         if (argc > 2) debug_from = atoi(argv[2]);
         else debug_from = 0;
     }
-    else if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='t' && argc > 2)
+    else if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='t' && argc > 2) {
+
         testing = argv[2];
+
+        if (argc > 3 && argv[3][0]=='-' && argv[3][1]=='d')
+            debug_from = 0x100;
+    }
 
 
     insert_cartridge("tetris-jp.gb");
