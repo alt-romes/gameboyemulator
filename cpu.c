@@ -390,18 +390,48 @@ static void sub_operand() {
     sub(&operand);
 }
 
-static void adc(unsigned char* regs) {
+static void adc(unsigned char* s) {
 
-    unsigned char value = *regs;
-    if(registers.f & FLAG_CY) value++;
-    add8bit(&value);
+    unsigned char adc = registers.f & FLAG_CY ? 1 : 0;
+    
+    // half carry flag
+    // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
+    if ((*s & 0xF) + (registers.a & 0xF) + adc > 0xF) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    registers.a += *s + adc;
+
+    // zero flag
+    if (registers.a == 0) set_flag(FLAG_Z);
+    else clear_flag(FLAG_Z);
+
+    // add/sub flag
+    clear_flag(FLAG_N);
+
+    // carry flag
+    if (registers.a < *s + adc) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+
 }
 
-static void sbc(unsigned char* regs) {
+static void sbc(unsigned char* reg) {
 
-    unsigned char value = *regs;
-    if(registers.f & FLAG_CY) value--;
-    sub(&value);
+    unsigned char sbc = registers.f & FLAG_CY ? 1 : 0;
+
+    registers.a -= *reg;
+    registers.a -= sbc;
+    
+    if ( (registers.a & 0xF) + (*reg & 0xF) + sbc > 0xF ) set_flag(FLAG_H); // Half carry if adding back the subtracted number changes the upper nibble
+    else clear_flag(FLAG_H);
+
+    if (registers.a) clear_flag(FLAG_Z);
+    else set_flag(FLAG_Z);
+
+    if ( ((registers.a + *reg + sbc)) > 0xFF ) set_flag(FLAG_CY); // Carry if subtraction is bigger than original number
+    else clear_flag(FLAG_CY);
+    
+    set_flag(FLAG_N);
+
 }
 
 static void sbc_from_mem() {
