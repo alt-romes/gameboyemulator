@@ -224,7 +224,9 @@ static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_wi
 static void load8bit_from_mem_operand(unsigned char * destination) {
 
     unsigned short address = read16bit_operand();
-    load8bit(destination,&memory[address]);
+
+    /* printf("%02x address, %02x value\n", address, memory[address]); */
+    load8bit(destination, &memory[address]);
 
 }
 
@@ -333,6 +335,12 @@ static void load16bit_sp_to_mem() {
 
 static void add8bit(unsigned char* s) {
 
+    // in C arithmetic is done with integers (int)
+
+    // carry flag
+    if (registers.a + *s > 0xFF) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
+
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
     if ((*s & 0xF) + (registers.a & 0xF) > 0xF) set_flag(FLAG_H);
@@ -347,9 +355,6 @@ static void add8bit(unsigned char* s) {
     // add/sub flag
     clear_flag(FLAG_N);
 
-    // carry flag
-    if (registers.a < *s) set_flag(FLAG_CY);
-    else clear_flag(FLAG_CY);
 }
 
 static void add8bit_from_mem() {
@@ -393,6 +398,10 @@ static void sub_operand() {
 static void adc(unsigned char* s) {
 
     unsigned char adc = registers.f & FLAG_CY ? 1 : 0;
+
+    // carry flag
+    if (registers.a + *s + adc > 0xFF) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
     
     // half carry flag
     // (h is set if there's an overflow from the lowest 4 bits to the highest 4)
@@ -407,10 +416,6 @@ static void adc(unsigned char* s) {
 
     // add/sub flag
     clear_flag(FLAG_N);
-
-    // carry flag
-    if (registers.a < *s + adc) set_flag(FLAG_CY);
-    else clear_flag(FLAG_CY);
 
 }
 
@@ -700,8 +705,7 @@ static void halt() {
 static void complement(){
 
     registers.a = ~registers.a;
-    set_flag(FLAG_N);
-    set_flag(FLAG_H);
+    set_flag(FLAG_N | FLAG_H);
 }
 
 static void swap (unsigned char* reg) {
@@ -709,6 +713,13 @@ static void swap (unsigned char* reg) {
     unsigned char new_lo = *reg >> 4;
     unsigned char new_hi = *reg << 4;
     *reg = (((0x00) | new_lo) | new_hi);
+
+    if (*reg)
+        clear_flag(FLAG_Z);
+    else
+        set_flag(FLAG_Z);
+
+    clear_flag(FLAG_N | FLAG_H | FLAG_CY);
 }
 
 static void stop_cpu() {
@@ -767,15 +778,15 @@ static void sla_op(unsigned char* reg) {
     unsigned char left_most_bit = 0x80 & *reg;
     *reg = *reg<<1;
 
-    if(left_most_bit)
+    if (left_most_bit)
         set_flag(FLAG_CY);
     else
         clear_flag(FLAG_CY);
 
-    if(*reg)
-        clear_flag(FLAG_Z);
-    else
+    if (!*reg)
         set_flag(FLAG_Z);
+    else
+        clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N | FLAG_H);
 }
@@ -784,15 +795,15 @@ static void srl_op(unsigned char* reg) {
     unsigned char right_most_bit = 0x1 & *reg;
     *reg = *reg>>1;
 
-    if(right_most_bit)
+    if (right_most_bit)
         set_flag(FLAG_CY);
     else
         clear_flag(FLAG_CY);
 
-    if(*reg)
-        clear_flag(FLAG_Z);
-    else
+    if (!*reg)
         set_flag(FLAG_Z);
+    else
+        clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N | FLAG_H);
 }
@@ -807,15 +818,15 @@ static void rr_op(unsigned char* reg) {
     else
         *reg = *reg & 0x7F;
 
-    if(right_most_bit)
+    if (right_most_bit)
         set_flag(FLAG_CY);
     else
         clear_flag(FLAG_CY);
 
-    if(*reg)
-        clear_flag(FLAG_Z);
-    else
+    if (!*reg)
         set_flag(FLAG_Z);
+    else
+        clear_flag(FLAG_Z);
 
     clear_flag(FLAG_N | FLAG_H);
 }
@@ -824,16 +835,14 @@ static void rra_op() {
 
     rr_op(&registers.a);
 
-    clear_flag(FLAG_Z);
-    clear_flag(FLAG_N);
-    clear_flag(FLAG_H);
+    clear_flag(FLAG_Z | FLAG_N | FLAG_H);
 }
 
 static void rlc_op(unsigned char* reg) {
     unsigned char left_most_bit = 0x80 & *reg;
     *reg = *reg<<1;
 
-    if(left_most_bit) {
+    if (left_most_bit) {
         *reg = *reg | 0x1;
         set_flag(FLAG_CY);
     }else{
@@ -841,7 +850,7 @@ static void rlc_op(unsigned char* reg) {
         clear_flag(FLAG_CY);
     }
 
-    if(*reg)
+    if (!*reg)
         set_flag(FLAG_Z);
     else
         clear_flag(FLAG_Z);
@@ -868,7 +877,7 @@ static void rrc_op(unsigned char* reg) {
         clear_flag(FLAG_CY);
     }
 
-    if(*reg)
+    if(!*reg)
         set_flag(FLAG_Z);
     else
         clear_flag(FLAG_Z);
@@ -884,24 +893,22 @@ static void rrca_op() {
 }
 
 static void sra_op(unsigned char* reg) {
+
     unsigned char left_most_bit = 0x80 & *reg;
     unsigned char right_most_bit = 0x1 & *reg;
     *reg = *reg>>1;
 
-    if(right_most_bit)
+    if (right_most_bit)
         set_flag(FLAG_CY);
     else
         clear_flag(FLAG_CY);
 
-    if(left_most_bit) {
-        *reg = *reg | 0x1;
-        set_flag(FLAG_CY);
-    }else{
-        *reg = *reg & 0xFE;
-        clear_flag(FLAG_CY);
-    }
+    if (left_most_bit)
+        *reg = *reg | 0x80;
+    else
+        *reg = *reg & 0x7F;
 
-    if(*reg)
+    if (!*reg)
         set_flag(FLAG_Z);
     else
         clear_flag(FLAG_Z);
@@ -959,14 +966,16 @@ static void daa_op(){
         correction |= 0x6;
 
     if (flag_cy_value || (!flag_n_value && registers.a > 0x99)) {
+        
         correction |= 0x60;
         set_flag(FLAG_CY);
-    } else
+    }
+    else
         clear_flag(FLAG_CY);
 
     registers.a += flag_n_value ? -correction : correction;
 
-    if(registers.a)
+    if (registers.a)
         clear_flag(FLAG_Z);
     else
         set_flag(FLAG_Z);
@@ -1469,7 +1478,7 @@ const struct instruction instructions_cb[256] = {
     { "SLA (HL)", sla_from_mem},      // 0x26
     { "SLA A", sla_op, &registers.a},           // 0x27
     { "SRA B", sra_op, &registers.b},           // 0x28
-    { "SRA C", sra_op, &registers.b},           // 0x29
+    { "SRA C", sra_op, &registers.c},           // 0x29
     { "SRA D", sra_op, &registers.d},           // 0x2a
     { "SRA E", sra_op, &registers.e},           // 0x2b
     { "SRA H", sra_op, &registers.h},           // 0x2c
