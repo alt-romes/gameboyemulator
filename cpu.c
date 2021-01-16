@@ -450,7 +450,7 @@ static void sbc_operand() {
     sbc(&operand);
 }
 
-static void adc_from_mem(unsigned char* reg_with_pointer) {
+static void adc_from_mem(unsigned short* reg_with_pointer) {
 
     adc(&memory[*reg_with_pointer]);
 }
@@ -1010,7 +1010,7 @@ static void set_op(void* n, unsigned char* reg) {
     *reg |= (1 << (n_byte));
 }
 
-static void set_op_from_mem(void* n , unsigned char* reg_with_pointer) {
+static void set_op_from_mem(void* n , unsigned short* reg_with_pointer) {
 
     set_op(n, &memory[*reg_with_pointer]);
 }
@@ -1022,7 +1022,7 @@ static void res_op(void* n, unsigned char* reg) {
     *reg &= ~(1 << (n_byte));
 }
 
-static void res_from_mem(void* n , unsigned char* reg_with_pointer) {
+static void res_from_mem(void* n , unsigned short* reg_with_pointer) {
 
     res_op(n, &memory[*reg_with_pointer]);
 }
