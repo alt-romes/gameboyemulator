@@ -214,6 +214,7 @@ static void load8bit_to_mem_from_operand(unsigned short * reg_with_pointer) {
 
     unsigned char value = read8bit_operand();
     load8bit(&memory[*reg_with_pointer], &value);
+
 }
 
 static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_with_pointer) {
@@ -225,7 +226,6 @@ static void load8bit_from_mem_operand(unsigned char * destination) {
 
     unsigned short address = read16bit_operand();
 
-    /* printf("%02x address, %02x value\n", address, memory[address]); */
     load8bit(destination, &memory[address]);
 
 }
@@ -256,16 +256,12 @@ static void load8bit_to_io_mem_operand(unsigned char* source) {
 
 static void load8bit_inc_to_mem() {
 
-    load8bit(&memory[registers.hl], &registers.a);
-
-    registers.hl++;
+    load8bit(&memory[registers.hl++], &registers.a);
 }
 
 static void load8bit_inc_from_mem() {
 
-    load8bit(&registers.a, &memory[registers.hl]);
-
-    registers.hl++;
+    load8bit(&registers.a, &memory[registers.hl++]);
 }
 
 static void load8bit_dec_to_mem() {
@@ -312,18 +308,28 @@ static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
 static void load16bit_sp_operand_offset() {
 
-    unsigned short operand_plus_sp = read8bit_signed_operand() + registers.sp;
+    char operand = read8bit_signed_operand();
+    unsigned short operand_plus_sp = operand + registers.sp;
+    unsigned char lo = registers.sp & 0xFF;
+
+    //half carry flag
+    if ((lo & 0xF) + (operand & 0xF) > 0xF ) set_flag(FLAG_H);
+    else clear_flag(FLAG_H);
+
+    // carry flag
+    if ((operand & 0xFF) + (lo & 0xFF) > 0xFF ) set_flag(FLAG_CY);
+    else clear_flag(FLAG_CY);
 
     load16bit(&registers.hl, &operand_plus_sp);
 
-    //TODO: calculate FLAG_H FLAG_CY
     clear_flag(FLAG_Z | FLAG_N);
 }
 
 static void load16bit_sp_to_mem() {
+
     unsigned short operand = read16bit_operand();
     unsigned char lo = registers.sp & 0xFF;
-    unsigned char hi = registers.sp & 0xFF00;
+    unsigned char hi = registers.sp >> 8;
 
     load8bit_to_mem(&operand, &lo);
     operand++;
@@ -338,7 +344,7 @@ static void add8bit(unsigned char* s) {
     // in C arithmetic is done with integers (int)
 
     // carry flag
-    if (registers.a + *s > 0xFF) set_flag(FLAG_CY);
+    if ((registers.a & 0xFF) + (*s & 0xFF) > 0xFF) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
 
     // half carry flag
@@ -607,7 +613,7 @@ static void cp_mem(unsigned short* reg_w_pointer) {
 
 
 /*---- 16-Bit Arithmetic --------*/
-// TODO: probably all ALU 16 bit operations are setting the flags wrong
+
 static void add16bit(unsigned short* source) {
 
     // Add 16 bits are two 8 bit adds
@@ -648,34 +654,23 @@ static void dec16bit(unsigned short* reg) {
 
 static void add16bit_sp_operand() {
 
-    unsigned char operand = read8bit_signed_operand();
+
+    char operand = read8bit_signed_operand();
     unsigned char lo = registers.sp & 0xFF;
-    unsigned char hi = registers.sp & 0xFF00;
+
+    // TODO: i should have refactored the flags code when i had the chance to do it 
 
     //half carry flag
-    if ((lo & 0xF) + (operand & 0xF) > 0xF) set_flag(FLAG_H);
+    if ((lo & 0xF) + (operand & 0xF) > 0xF ) set_flag(FLAG_H);
     else clear_flag(FLAG_H);
 
-    unsigned char op_plus_lo = operand + lo;
-
     // carry flag
-    if (op_plus_lo < lo) set_flag(FLAG_CY);
+    if ((operand & 0xFF) + (lo & 0xFF) > 0xFF ) set_flag(FLAG_CY);
     else clear_flag(FLAG_CY);
-
-    if(registers.f & FLAG_CY) {
-        //half carry flag
-        if ((hi & 0xF) + (1 & 0xF) > 0xF) set_flag(FLAG_H);
-        else clear_flag(FLAG_H);
-
-        unsigned char carry_plus_hi = hi + 1;
-
-        // carry flag
-        if (carry_plus_hi < hi) set_flag(FLAG_CY);
-        else clear_flag(FLAG_CY);
-    }
 
     registers.sp += operand;
     clear_flag(FLAG_Z | FLAG_N);
+
 }
 
 
@@ -1389,7 +1384,7 @@ const struct instruction instructions[256] = {
     { "AND 0x%02X", and_operand},                   // 0xe6
     { "RST 0x20",  rst, (void*) 0x20},                     // 0xe7
     { "ADD SP,0x%02X", add16bit_sp_operand},                // 0xe8
-    { "JP HL", jump,&registers.hl},                        // 0xe9
+    { "JP HL", jump, &registers.hl},                        // 0xe9
     { "LD (0x%04X), A", load8bit_to_mem_operand, &registers.a},               // 0xea
     { "UNKNOWN", NULL},                      // 0xeb
     { "UNKNOWN", NULL},                      // 0xec
@@ -1815,7 +1810,6 @@ static int execute() {
         exit(1);
 
     }
-
 
 
     return time;

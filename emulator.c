@@ -126,7 +126,6 @@ int main(int argc, char *argv[])
     load_roms();
 
 
-
     if (testing != NULL) {
 
         // TODO: To run the whole "cpu_instr" test, i need to implement MBC1

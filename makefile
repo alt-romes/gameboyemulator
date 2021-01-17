@@ -1,4 +1,5 @@
 DEBUG=0
+DEBUGT=256
 TEST=0
 TESTPATH=""
 
@@ -55,5 +56,5 @@ test:
 	./emulator -t $(TESTPATH)
 
 dt:
-	./emulator -t $(TESTPATH) -d $(DEBUG)
+	./emulator -t $(TESTPATH) -d $(DEBUGT)
 
