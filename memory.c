@@ -33,7 +33,13 @@ union address_space {
         unsigned char unusable[0x60]; // Not usable
         union {
             struct {
-                unsigned char padding[0xF];
+                unsigned char padding[0x4];
+                unsigned char tdiv[1]; // Timer divider register $FF04 incremented at 16384Hz
+                unsigned char tima[1]; /* Timer counter register $FF05 incremented at frequency in TAC 
+                                          Requests interrupt when it overflows */
+                unsigned char tma[1]; // Timer modulo $FF06
+                unsigned char tac[1]; // Timer control $FF07 Bit 1-0 sets frequency, bit 2 enables/disables
+                unsigned char padding____[7];
                 unsigned char interrupt_request_register[1]; // Interrupt request register ($FF0F)
                 unsigned char padding_[0x30];
                 unsigned char lcdc[1]; // LCD Control ($FF40)
@@ -101,6 +107,10 @@ unsigned char* lcd_windowx = address_space.lcd_windowx;
 unsigned char* lcd_bgp = address_space.lcd_bgp;
 unsigned char* rombanks = address_space.rombanks;
 unsigned char* disabled_bootrom = address_space.disabled_bootrom;
+unsigned char* tdiv = address_space.tdiv;
+unsigned char* tima = address_space.tima;
+unsigned char* tma = address_space.tma;
+unsigned char* tac = address_space.tac;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];

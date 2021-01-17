@@ -8,6 +8,7 @@ unsigned long debugger = 0;
 #include "memory.c"
 #include "cpu.c"
 #include "ppu.c"
+#include "timer.c"
 
 const int FRAME_MAX_CYCLES = 69905; /*
                                      *      Gameboy's CPU runs at 4.194304MHz
@@ -62,6 +63,8 @@ void update() {
                       * the amount of cycles run by the processor
                       * in order to keep it in sync with the processor.
                       */
+
+        timer(cycles); /* Same thing as the PPU goes for timers */
 
         // TODO: Receive inputs/request interrupts?
 
