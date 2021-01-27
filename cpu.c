@@ -129,6 +129,8 @@ static void clear_flag(unsigned char flag) {
 
 /*---- CPU Operations ---------------------------------------------*/
 
+// Account for the extra cycles the JUMP instructions might take
+static int extra_instruction_cycles = 0;
 
 /*---- CPU Utils ----------------*/
 
@@ -188,6 +190,13 @@ static void debug() {
 /*---- 8-Bit Loads --------------*/
 
 static void load8bit(unsigned char * destination, unsigned char * source) {
+
+    // TODO: Move these cases to a mmu
+    if (&memory[0xFF04] == destination) {
+
+        // If you try writing to DIV, it'll be set to 0
+        *destination = 0;
+    }
 
     *destination = *source;
 }
@@ -1027,17 +1036,19 @@ static void res_from_mem(void* n , unsigned short* reg_with_pointer) {
 static void jump(unsigned short *reg) {
 
     registers.pc = *reg;
-
+    extra_instruction_cycles = 4;
 }
 
 static void jump_operand(void* unused , void* unused2) {
 
     registers.pc = read16bit_operand();
+    extra_instruction_cycles = 4;
 }
 
 static void jump_add_operand() {
 
     registers.pc += read8bit_signed_operand();
+    extra_instruction_cycles = 4;
 }
 
 //TODO: general jump condition?
@@ -1050,8 +1061,11 @@ static void jump_condition_operand(void* flag, void* jump_cond) {
 
     unsigned short operand = read16bit_operand();
 
-    if (flag_value == (unsigned char) jump_cond)
+    if (flag_value == (unsigned char) jump_cond) {
+
         registers.pc = operand;
+        extra_instruction_cycles = 4;
+    }
 
 }
 
@@ -1063,8 +1077,11 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
     char operand = read8bit_signed_operand();
 
-    if (flag_value == (unsigned char) jump_cond)
+    if (flag_value == (unsigned char) jump_cond) {
+
         registers.pc += operand;
+        extra_instruction_cycles = 4;
+    }
 }
 
 
@@ -1078,6 +1095,7 @@ static void call(unsigned short address) {
     memory[--registers.sp] = registers.pclo;
 
     registers.pc = address;
+
 }
 
 static void call_operand() {
@@ -1101,9 +1119,11 @@ static void call_condition(void* flag, void* call_cond) {
     unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
     unsigned short operand = read16bit_operand();
 
-    if (flag_value == (unsigned char) call_cond)
-        call(operand);
+    if (flag_value == (unsigned char) call_cond) {
 
+        call(operand);
+        extra_instruction_cycles = 12;
+    }
 }
 
 /*---- Returns ------------------*/
@@ -1119,8 +1139,11 @@ static void ret_condition(void* flag, void* ret_cond) {
 
     unsigned char flag_value = (unsigned char) flag & registers.f ? 1 : 0;
 
-    if (flag_value == (unsigned char) ret_cond)
+    if (flag_value == (unsigned char) ret_cond) {
+
         ret_op();
+        extra_instruction_cycles = 12;
+    }
 
 }
 
@@ -1409,23 +1432,28 @@ const struct instruction instructions[256] = {
     { "RST 0x38",  rst, (void*) 0x38},                     // 0xff
 };
 
+// TODO: Jump instructions take more cycles if the condition is true
+
 const unsigned char instructions_ticks[256] = {
-    2, 6, 4, 4, 2, 2, 4, 4, 10, 4, 4, 4, 2, 2, 4, 4, // 0x0_
-    2, 6, 4, 4, 2, 2, 4, 4,  4, 4, 4, 4, 2, 2, 4, 4, // 0x1_
-    0, 6, 4, 4, 2, 2, 4, 2,  0, 4, 4, 4, 2, 2, 4, 2, // 0x2_
-    4, 6, 4, 4, 6, 6, 6, 2,  0, 4, 4, 4, 2, 2, 4, 2, // 0x3_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x4_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x5_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x6_
-    4, 4, 4, 4, 4, 4, 2, 4,  2, 2, 2, 2, 2, 2, 4, 2, // 0x7_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x8_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0x9_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0xa_
-    2, 2, 2, 2, 2, 2, 4, 2,  2, 2, 2, 2, 2, 2, 4, 2, // 0xb_
-    0, 6, 0, 6, 0, 8, 4, 8,  0, 2, 0, 0, 0, 6, 4, 8, // 0xc_
-    0, 6, 0, 0, 0, 8, 4, 8,  0, 8, 0, 0, 0, 0, 4, 8, // 0xd_
-    6, 6, 4, 0, 0, 8, 4, 8,  8, 2, 8, 0, 0, 0, 4, 8, // 0xe_
-    6, 6, 4, 2, 0, 8, 4, 8,  6, 4, 8, 2, 0, 0, 4, 8  // 0xf_
+    4, 12, 8, 8, 4, 4, 8, 4,     20, 8, 8, 8, 4, 4, 8, 4, // 0x0_
+    4, 12, 8, 8, 4, 4, 8, 4,     12, 8, 8, 8, 4, 4, 8, 4, // 0x1_
+    8, 12, 8, 8, 4, 4, 8, 4,     8, 8, 8, 8, 4, 4, 8, 4, // 0x2_
+    8, 12, 8, 8, 12, 12, 12, 4,  8, 8, 8, 8, 4, 4, 8, 4, // 0x3_
+
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0x4_
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0x5_
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0x6_
+    8, 8, 8, 8, 8, 8, 4, 8,  4, 4, 4, 4, 4, 4, 8, 4, // 0x7_
+
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0x8_
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0x9_
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0xa_
+    4, 4, 4, 4, 4, 4, 8, 4,  4, 4, 4, 4, 4, 4, 8, 4, // 0xb_
+
+    8, 12, 12, 16, 12, 16, 8, 16,  8, 16, 12, 4, 12, 24, 8, 16, // 0xc_
+    8, 12, 12,  0, 12, 16, 8, 16,  8, 16, 12, 0, 12,  0, 8, 16, // 0xd_
+    12, 12, 8,  0, 0, 16, 8, 16,  16,  4, 16, 0,  0,  0, 8, 16, // 0xe_
+    12, 12, 8,  4, 0, 16, 8, 16,  12,  8, 16, 4,  0,  0, 8, 16  // 0xf_
 };
 
 /*
@@ -1699,14 +1727,14 @@ const unsigned char instructions_cb_ticks[256] = {
     8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x5_
     8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x6_
     8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x7_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x8_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0x9_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xa_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xb_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xc_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xd_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8, // 0xe_
-    8, 8, 8, 8, 8,  8, 12, 8,  8, 8, 8, 8, 8, 8, 12, 8  // 0xf_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x8_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x9_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0xa_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0xb_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0xc_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0xd_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0xe_
+    8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8  // 0xf_
 };
 
 
@@ -1782,6 +1810,7 @@ static int execute() {
     unsigned char opcode = memory[registers.pc++];
 
     int time;   /* time is in cycles */
+    extra_instruction_cycles = 0;
     struct instruction instruction;
 
     if (opcode == 0xcb) {       /* if op is CB prefix, execute next op from the CB instruction set */
@@ -1812,7 +1841,7 @@ static int execute() {
     }
 
 
-    return time;
+    return time + extra_instruction_cycles;
 }
 
 
