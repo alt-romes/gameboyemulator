@@ -1757,17 +1757,20 @@ void request_interrupt(unsigned char interrupt_flag) {
 
 static void process_interrupts() {
 
-    if ( interrupt_master_enable ) {
+    unsigned char test_mask = 1;
 
-        unsigned char test_mask = 1;
+    for (int i=0; i<5; i++) {
 
-        for (int i=0; i<5; i++) {
+        /*   if there's an interrupt request, and that interrupt is "enabled" in the
+         * interrupt enable register (which is set by the game), then the request is acknowledged
+         * and processed.
+         */
+        if ( (*interrupt_request_register & test_mask) & *interrupt_enable_register ) {
 
-            /*   if there's an interrupt request, and that interrupt is "enabled" in the
-             * interrupt enable register (which is set by the game), then the request is acknowledged
-             * and processed.
-             */
-            if ( (*interrupt_request_register & test_mask) & *interrupt_enable_register ) {
+            // When an interrupt is requested, the cpu is no longer halted;
+            halted = 0;
+
+            if ( interrupt_master_enable ) {
 
                 disable_interrupts();
 
@@ -1779,17 +1782,18 @@ static void process_interrupts() {
                  * (Interruption handlers are in addresses 0x40 to 0x60) */
                 unsigned short address = 0x40 + 0x8*i;
                 call(address);
-
-                /* The interruption handler will return and re-enable interrupts */
-
-                break;
+            
             }
 
-            test_mask <<= 1;
+            /* The interruption handler will return and re-enable interrupts */
 
+            break;
         }
 
+        test_mask <<= 1;
+
     }
+
 
     check_disable_bootrom();
 
@@ -1848,14 +1852,13 @@ static int execute() {
 int cpu() {
 
     if (stopped)    /* when the CPU is stopped, just keep updating the window (return random number of cycles) */
-        return 2;
+        return 1;
     int cycles = 0;
 
     if (!halted)
         cycles = execute();
     else
-        if (!interrupt_master_enable)   /* special case, if interrupts aren't enabled, halt is only enabled for one execute */
-            halted = 0;
+        cycles = 4;
 
     process_interrupts();
 
