@@ -45,17 +45,21 @@ void update() {
         int cycles = cpu();
 
         if (debugger && (!debugger_offset || !(debugger_offset--))) {
-
-            char c = getchar();
-            if (c == 'n')
-                debugger_offset = 10;
-            if (c == 'b')
+            int c = getchar();
+            switch(c) {
+            case 'n':
+                debugger_offset = 10;\
+                break;
+            case 'b':
                 debugger_offset = 100;
-            if (c == 'm')
+                break;
+            case 'm':
                 debugger_offset = 1000;
-            if (c == ',')
+                break;
+            case ',':
                 debugger_offset = 5000;
-
+                break;
+            }
         }
 
 
