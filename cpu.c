@@ -191,12 +191,6 @@ static void debug() {
 
 static void load8bit(unsigned char * destination, unsigned char * source) {
 
-    // TODO: Move these cases to a mmu
-    if (&memory[0xFF04] == destination) {
-
-        // If you try writing to DIV, it'll be set to 0
-        *destination = 0;
-    }
 
     *destination = *source;
 }
@@ -210,77 +204,84 @@ static void load8bit_operand(unsigned char * destination, void* _unused) {
 
 static void load8bit_to_mem(unsigned short * reg_with_pointer, unsigned char * source) {
 
-    load8bit(&memory[*reg_with_pointer], source);
+
+    extra_instruction_cycles = mmu_write8bit(*reg_with_pointer, *source); 
 }
 
 static void load8bit_to_mem_operand(unsigned char * source) {
 
     unsigned short address = read16bit_operand();
-    load8bit(&memory[address], source);
+    load8bit_to_mem(&address, source);
 }
 
 static void load8bit_to_mem_from_operand(unsigned short * reg_with_pointer) {
 
     unsigned char value = read8bit_operand();
-    load8bit(&memory[*reg_with_pointer], &value);
+    load8bit_to_mem(reg_with_pointer, &value);
 
 }
 
 static void load8bit_from_mem(unsigned char* destination, unsigned short* reg_with_pointer) {
 
-    load8bit(destination, &memory[*reg_with_pointer]);
+    mmu_read8bit(destination, *reg_with_pointer);
 }
 
 static void load8bit_from_mem_operand(unsigned char * destination) {
 
     unsigned short address = read16bit_operand();
 
-    load8bit(destination, &memory[address]);
+    load8bit_from_mem(destination, &address);
 
 }
 
 static void load8bit_from_io_mem(unsigned char* destination, unsigned char* offset_reg) {
 
-    load8bit(destination, &ioports[*offset_reg]);
+    unsigned short pos = 0xFF00 + *offset_reg;
+    load8bit_from_mem(destination, &pos);
 }
 
 static void load8bit_from_io_mem_operand(unsigned char* destination) {
 
     unsigned char operand = read8bit_operand();
-
-    load8bit(destination, &ioports[operand]);
+    unsigned short pos = 0xFF00 + operand;
+    load8bit_from_mem(destination, &pos);
 }
 
-static void load8bit_to_io_mem(unsigned char* offsetreg, unsigned char* source) {
+static void load8bit_to_io_mem(unsigned char* offset_reg, unsigned char* source) {
 
-    load8bit(&ioports[*offsetreg], source);
+    unsigned short pos = 0xFF00 + *offset_reg;
+    load8bit_to_mem(&pos, source);
 }
 
 static void load8bit_to_io_mem_operand(unsigned char* source) {
 
     unsigned char operand = read8bit_operand();
-
-    load8bit_to_io_mem(&operand, source);
+    unsigned short pos = 0xFF00 + operand;
+    load8bit_to_mem(&pos, source);
 }
 
 static void load8bit_inc_to_mem() {
 
-    load8bit(&memory[registers.hl++], &registers.a);
+    load8bit_to_mem(&registers.hl, &registers.a);
+    registers.hl++;
 }
 
 static void load8bit_inc_from_mem() {
 
-    load8bit(&registers.a, &memory[registers.hl++]);
+    load8bit_from_mem(&registers.a, &registers.hl);
+    registers.hl++;
 }
 
 static void load8bit_dec_to_mem() {
 
-    load8bit(&memory[registers.hl--], &registers.a);
+    load8bit_to_mem(&registers.hl, &registers.a);
+    registers.hl--;
 }
 
 static void load8bit_dec_from_mem() {
 
-    load8bit(&registers.a, &memory[registers.hl--]);
+    load8bit_from_mem(&registers.a, &registers.hl);
+    registers.hl--;
 }
 
 

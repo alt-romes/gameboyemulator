@@ -111,6 +111,7 @@ unsigned char* tdiv = address_space.tdiv;
 unsigned char* tima = address_space.tima;
 unsigned char* tma = address_space.tma;
 unsigned char* tac = address_space.tac;
+unsigned char* dma = address_space.dma;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
@@ -160,5 +161,108 @@ void check_disable_bootrom() {
         cartridge_loaded++;
         memcpy(memory, rom, 256);
     }
+
+}
+
+void dma_transfer(unsigned char data) {
+
+    printf("DMA transfer\n");
+
+    // The written data value specifies the transfer source address divided by 0x100
+    // By multiplying by 0x100 (which is << 8) we get the source address
+    // Read from source address XX00 until XX9F (XX is defined by data)
+    // And write to FE00 until FE9F
+    unsigned short address = data << 8;
+    for (int i = 0; i < 0xA0; i++)
+        memory[address + i] = memory[0xfe00 + i];
+
+}
+
+
+int mmu_write8bit(unsigned short memdestination, unsigned char data) {
+
+    int extra_cycles = 0;
+
+    if (&memory[memdestination] == tdiv) {
+
+        // If you try writing to DIV, it'll be set to 0
+        memory[memdestination] = 0;
+    }
+    else if (&memory[memdestination] == dma) {
+        
+        // Writing to DMA Transfer and Start address
+
+        // Launch a DMA transfer from ROM to OAM
+        dma_transfer(data);
+        extra_cycles = 160;
+    }
+    else if (memdestination <= 0x9fff && memdestination >= 0x8000) {
+
+        // Destination is VRAM
+
+        unsigned char mode = *lcdc_stat & 3; // 3 = 0b11, get first two bits that define the mode
+
+        if (mode == 3) {
+
+            // During LCDC mode 3, no data can be written to VRAM
+
+            return extra_cycles;
+        }
+    }
+    else if (memdestination <= 0xfe9f && memdestination >= 0xfe00) {
+
+        // Destination is OAM
+
+        unsigned char mode = *lcdc_stat & 3; // 3 = 0b11, get first two bits that define the mode
+
+        if (mode > 1) {
+
+            // During LCDC mode 2 and 3, no data can be written to OAM
+
+            return extra_cycles;
+        }
+
+    }
+
+
+    memory[memdestination] = data;
+
+    return extra_cycles;
+}
+
+void mmu_read8bit(unsigned char* destination, unsigned short memdestination) {
+
+
+    if (memdestination <= 0x9fff && memdestination >= 0x8000) {
+
+        // Reading from VRAM
+
+        unsigned char mode = *lcdc_stat & 3; // 3 = 0b11, get first two bits that define the mode
+
+        if (mode == 3) {
+
+            // During LCDC mode 3, no data can be read from VRAM
+
+            *destination = 0xFF; // Read undefined value which is usually 0xFF
+            return;
+        }
+    }
+    else if (memdestination <= 0xfe9f && memdestination >= 0xfe00) {
+
+        // Reading from OAM
+
+        unsigned char mode = *lcdc_stat & 3; // 3 = 0b11, get first two bits that define the mode
+
+        if (mode > 1) {
+
+            // During LCDC mode 2 and 3, no data can be read from OAM
+
+            *destination = 0xFF; 
+            return;
+        }
+
+    }
+
+    *destination = memory[memdestination];
 
 }

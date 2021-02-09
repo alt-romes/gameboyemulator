@@ -46,7 +46,7 @@ emulator: emulator.c cpu.c memory.c ppu.c
 clean:
 	rm emulator
 
-run:
+run: emulator
 	./emulator
 
 debug:
