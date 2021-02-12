@@ -100,7 +100,7 @@ void emulate() {
 
 static void boot() {
 
-
+    printf("Booting...\n");
 
 }
 

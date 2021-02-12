@@ -116,7 +116,7 @@ unsigned char* dma = address_space.dma;
 unsigned char* joyp = address_space.joyp;
 
 // Gameboy game read only memory (inserted cartridge)
-unsigned char rom[0x200000];
+unsigned char rom[0x200000] = {0};
 unsigned char ram_banks[0x8000] = {0}; // Max 4 ram banks (only 2 bits to change it), each has 0x2000 bytes
 
 unsigned char mbctype = 0;
@@ -162,14 +162,12 @@ void load_roms() {
 void load_tests(char* testpath) {
 
     FILE* test = fopen(testpath, "rb");
-    /* fread(rom, sizeof(unsigned char), 0x200000, test); */
-    fread(memory, sizeof(unsigned char), 0x8000, test);
+    fread(rom, sizeof(unsigned char), 0x200000, test);
+    memcpy(memory, rom, 0x8000);
 
     fclose(test);
 
-    /* *disabled_bootrom = 1; */
-
-    /* cartridge_loaded = 1; */
+    *disabled_bootrom = 1;
 }
 
 void check_disable_bootrom() {
@@ -193,8 +191,6 @@ void check_disable_bootrom() {
                 mbctype = 2;
                 break;
         }
-
-        current_rom_bank = 1;
         
         printf("MBC TYPE %d\n", mbctype);
 
@@ -218,6 +214,8 @@ void dma_transfer(unsigned char data) {
 
 
 int mmu_write8bit(unsigned short address, unsigned char data) {
+    
+    /* printf("Write address %x\n", address); */
 
     int extra_cycles = 0;
 
@@ -271,6 +269,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         // Change ROM Bank upper part or RAM bank
         else if (address >= 0x4000 && address < 0x6000 && mbctype == 1) {
 
+            printf("Changing ROM bank upper bits %x\n", address);
+
             // If doing ROM Bank change set upper 3 bits
 
             if (changing_rombank) {
@@ -290,6 +290,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         }
         // Change *changing* to ROM Bank or RAM Bank
         else if (address >= 0x6000 && address < 0x8000 && mbctype == 1) {
+
+            printf("Changing changing ROM or RAM bank %d\n", address);
 
             // The lowest bit defines whether it's ROM or RAM changing
             // If it's 0 -> ROM, 1 -> RAM
@@ -399,6 +401,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
 void mmu_read8bit(unsigned char* destination, unsigned short address) {
 
+    /* printf("Read address %x\n", address); */
+
 
     if (address <= 0x9fff && address >= 0x8000) {
 
@@ -429,12 +433,20 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         }
 
     }
-    else if (address >= 0x4000 && address < 0x8000 && 0) {
+    else if (address == 0xFF4D) {
+
+        // When reading speed switching for GBC just return FF to avoid bugs? (i'm not doing GBC)
+
+        *destination = 0xFF;
+        return;
+
+    }
+    else if (address >= 0x4000 && address < 0x8000) {
 
         // Reading from ROM Bank
         
         // Read from current rom bank
-        printf("Reading from 0x4000-0x8000, current rom bank is %d, desired address was %x, actual address is %x\n", current_rom_bank, address, (address - 0x4000) + current_rom_bank*0x4000);
+        /* printf("Reading from 0x4000-0x8000, current rom bank is %d, desired address was %x, actual address is %x\n", current_rom_bank, address, (address - 0x4000) + current_rom_bank*0x4000); */
     
         // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
         *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
@@ -443,6 +455,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
     else if (address >= 0xA000 && address < 0xC000 && mbctype > 0 && rambanks_enabled) {
 
         // Reading from RAM Bank
+       
+        printf("reading from RAM BANK\n");
         
         // Read from current ram bank
         // rebase address and offset to the correct ram bank (each has 0x2000 size)
