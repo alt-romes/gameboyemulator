@@ -127,6 +127,7 @@ unsigned char current_rom_bank = 1;
 // Which RAM bank is currently loaded in address []
 unsigned char current_ram_bank = 0;
 unsigned char rambanks_enabled = 0;
+unsigned char rambanks_can_be_enabled = 0;
 unsigned char changing_rombank = 1; // Doing ROM Bank or RAM Bank change?
 
 unsigned char cartridge_loaded = 0; // 0 if cartridge isn't loaded, 1 if it's partially loaded (all except first 256 bytes), 2 if it's fully loaded
@@ -161,10 +162,14 @@ void load_roms() {
 void load_tests(char* testpath) {
 
     FILE* test = fopen(testpath, "rb");
+    /* fread(rom, sizeof(unsigned char), 0x200000, test); */
     fread(memory, sizeof(unsigned char), 0x8000, test);
 
     fclose(test);
 
+    /* *disabled_bootrom = 1; */
+
+    /* cartridge_loaded = 1; */
 }
 
 void check_disable_bootrom() {
@@ -179,6 +184,7 @@ void check_disable_bootrom() {
         switch (memory[0x147]) {
             case 1:
             case 2:
+                rambanks_can_be_enabled = 1;
             case 3:
                 mbctype = 1;
                 break;
@@ -189,6 +195,8 @@ void check_disable_bootrom() {
         }
 
         current_rom_bank = 1;
+        
+        printf("MBC TYPE %d\n", mbctype);
 
     }
 
@@ -218,6 +226,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // When the game writes to the ROM addresses (here), it is trapped and decyphered to change the Banks
 
+        printf("Write ROM address %x\n", address);
+
         // Handle Bank changing
 
         // Enable RAM Banking
@@ -229,8 +239,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
             // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
             if ((data & 0xF) == 0xa)
-                rambanks_enabled = 1;
-            else if ((data & 0xF) == 0)
+                rambanks_enabled = rambanks_can_be_enabled;
+            else
                 rambanks_enabled = 0;
 
         }
@@ -238,6 +248,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         else if (address >= 0x2000 && address < 0x4000 && (mbctype == 1 || mbctype == 2)) {
 
             // Change bits 0-4 of the current rom bank number in MBC1 or bits 0-3 in MBC2 
+
+            printf("Changing ROM Bank with data %d\n", data);
 
             if (mbctype == 2) {
                 // lower nibble (first 4 bits) sets rom bank
@@ -263,10 +275,10 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
             if (changing_rombank) {
 
-                // Do ROM - 3 upper bits - change
+                // Do ROM - 2 upper bits - change
 
                 current_rom_bank &= 0x1F; // Keep only lower 5 bits
-                current_rom_bank |= data & 0xE0; // Add upper 3 bits from the lower byte of the address
+                current_rom_bank |= (data & 0x3) << 5; // Add additional upper 2 bits from the lower byte of the address
                 current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0
             }
             else {
@@ -417,17 +429,18 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         }
 
     }
-    else if (address >= 0x4000 && address < 0x8000) {
+    else if (address >= 0x4000 && address < 0x8000 && 0) {
 
         // Reading from ROM Bank
         
         // Read from current rom bank
+        printf("Reading from 0x4000-0x8000, current rom bank is %d, desired address was %x, actual address is %x\n", current_rom_bank, address, (address - 0x4000) + current_rom_bank*0x4000);
     
-        // Make address be relative to 0 by subtracting 0x4000, and add the current rom bank (each has 0x4000 size)
+        // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
         *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
         return;
     }
-    else if (address >= 0xA000 && address < 0xC000) {
+    else if (address >= 0xA000 && address < 0xC000 && mbctype > 0 && rambanks_enabled) {
 
         // Reading from RAM Bank
         

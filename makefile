@@ -49,12 +49,12 @@ clean:
 run: emulator
 	./emulator
 
-debug:
+debug: emulator
 	./emulator -d $(DEBUG)
 
-test:
+test: emulator
 	./emulator -t $(TESTPATH)
 
-dt:
+dt: emulator
 	./emulator -t $(TESTPATH) -d $(DEBUGT)
 
