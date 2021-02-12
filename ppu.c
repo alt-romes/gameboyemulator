@@ -384,13 +384,123 @@ static void render_frame() {
 
 
 
-static void render_sprites() {
+static void render_sprites(unsigned char pallete_colors[4]) {
+// the 4 is just helpful, the parameter is still (unsigned char*)
 
-    // TODO
+    /* 
+     *  4 bytes per sprite, and 40 sprites (from 0xfe00 - 0xfe9f is the sprite attribute table)
+     *
+     *  byte 0 : y pos
+     *  byte 1 : x pos
+     *  byte 2 : tile number (unsigned value selects tile from 0x8000-0x8fff)
+     *  byte 3 : attributes of the sprite
+     *
+     *
+     *  sprite attributes: (from the pandocs)
+     *
+     *  Bit7   OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
+     *     (Used for both BG and Window. BG color 0 is always behind OBJ)
+     *  Bit6   Y flip          (0=Normal, 1=Vertically mirrored)
+     *  Bit5   X flip          (0=Normal, 1=Horizontally mirrored)
+     *  Bit4   Palette number  **Non CGB Mode Only** (0=OBP0, 1=OBP1)
+     *  Bit3   Tile VRAM-Bank  **CGB Mode Only**     (0=Bank 0, 1=Bank 1)
+     *  Bit2-0 Palette number  **CGB Mode Only**     (OBP0-7)
+     *
+     */
+
+    const int SPRITE_ATTRIBUTES_SIZE = 4;
+    const int OAM_START = 0xfe00; // attribute table base location
+    const int SPRITE_TILES_START = 0x8000; // sprites tiles base location
+
+    // Is the sprite 8x8 or 8x16? Test LCDC Stat bit number 2
+    char sprite_ysize = *lcdc & 4 ? 16 : 8; 
+
+    // run over the 40 sprites and decide which to print - however no more than 10 sprites can be in each line
+    int sprites_drawn = 0; // only 10 sprites can be drawn per scanline
+    for (int sprite = 0; sprite<40 && sprites_drawn < 10; sprite++) {
+
+        int sprite_index = sprite*SPRITE_ATTRIBUTES_SIZE; // Each sprite uses 4 bytes
+
+        // each sprite takes 
+        unsigned char ypos; // byte 0
+        mmu_read8bit(&ypos, + OAM_START + sprite_index);
+        ypos -= 16; // kind of hard to explain, but sprites are only in the screen from 16 down (probably because the top left corner can go 16 above the upper line)
+
+        unsigned char xpos; // byte 1
+        mmu_read8bit(&xpos, + OAM_START + sprite_index + 1);
+        xpos -= 8; // same thing as -16 but for x coordinate
+
+        unsigned char tile_number; // byte 2
+        mmu_read8bit(&tile_number, + OAM_START + sprite_index + 2);
+
+        unsigned char attributes; // byte 3
+        mmu_read8bit(&attributes, + OAM_START + sprite_index + 3);
+
+        // Is the scanline passing through this sprite 
+        if (*lcd_ly < (ypos + sprite_ysize) && *lcd_ly >= ypos) {
+
+            // Drawing sprite
+            sprites_drawn++;
+            
+
+            /* Each Tile occupies 16 bytes, where each 2 bytes represent a line:
+
+                 Byte 0-1  First Line (Upper 8 pixels)
+                 Byte 2-3  Next Line
+                 etc.
+            */
+
+            // the 2 bytes for the line of the sprite we're drawing (2 bytes represent a line)
+            unsigned char lo_color_bit, hi_color_bit;
+
+            // the get the correct bytes first we get the address of the tile
+            unsigned short tileaddress = SPRITE_TILES_START + tile_number*16; 
+
+            // which line of the sprite are we drawing?
+            unsigned char sprite_line = (*lcd_ly - ypos)*2;
+
+            // read the y axis backwards (if we were reading line 1 we read line 8 instead)
+            if (attributes & 0x40) // Y Flip
+                sprite_line = (sprite_line-ypos) * -1;
+
+            // Address for line in the tile
+            unsigned short line_in_tile_address = tileaddress + sprite_line + sprite_line;
+
+            // the 2 bytes for the line of the sprite we're drawing (2 bytes represent a line)
+            mmu_read8bit(&hi_color_bit, line_in_tile_address);
+            mmu_read8bit(&lo_color_bit, line_in_tile_address + 1);
+
+            // Draw 8 horizontal pixels of sprite in scanline
+            for (int horizontal_pixel=0; horizontal_pixel<8; horizontal_pixel++) {
+
+                int colorbit = 7 - horizontal_pixel;
+                
+                // Read the color bits the other way around to flip the sprite
+                if (attributes & 0x20) // X Flip
+                    colorbit = (colorbit - 7) * -1; // if it was 7, it'll read 0, if it was 6 -> 1, etc...
+
+                // To get color join colorbit from byte 1 on the left and byte 2 to the right
+                unsigned char pixel_color = 0;
+                pixel_color |= (hi_color_bit >> colorbit) & 1; // 7-pixel because pixel 0 is in bit 7
+                pixel_color <<= 1;
+                pixel_color |= (lo_color_bit >> colorbit) & 1;
+
+                // White is transparent for sprites
+                if (pallete_colors[pixel_color] == 0)
+                    continue;
+
+                scanlinesbuffer[(*lcd_ly)*160 + xpos + horizontal_pixel] = (3-pallete_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black and 0 is black in rgb
+
+            }
+
+        }
+
+    }
+
 }
 
-static void render_tiles() {
-
+static void render_tiles(unsigned char pallete_colors[4]) {
+// the 4 is just helpful, the parameter is still (unsigned char*)
 
     /* From the pandocs:
 
@@ -479,12 +589,6 @@ static void render_tiles() {
               3  Black
          */
 
-        unsigned char pallete_colors[4];
-        pallete_colors[3] = *lcd_bgp >> 6;
-        pallete_colors[2] = (*lcd_bgp >> 4) & 0x3;
-        pallete_colors[1] = (*lcd_bgp >> 2) & 0x3;
-        pallete_colors[0] = *lcd_bgp & 0x3;
-
         // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
         // Add those pixels to the scanlines buffer, and add up to the amount of pixels drawn
         unsigned char tile_pixels_drawn = 0;
@@ -515,11 +619,17 @@ static void render_tiles() {
 
 static void draw_scanline() {
 
+    unsigned char pallete_colors[4];
+    pallete_colors[3] = *lcd_bgp >> 6;
+    pallete_colors[2] = (*lcd_bgp >> 4) & 0x3;
+    pallete_colors[1] = (*lcd_bgp >> 2) & 0x3;
+    pallete_colors[0] = *lcd_bgp & 0x3;
+
     if (*lcdc & 0x1)    // LCDC Bit 0 enables or disables Background (BG + Window) Display
-        render_tiles();
+        render_tiles(pallete_colors); 
 
     if (*lcdc & 0x2)    // LCDC Bit 1 enables or disables Sprites
-        render_sprites();
+        render_sprites(pallete_colors);
 }
 
 void ppu(int cycles) {

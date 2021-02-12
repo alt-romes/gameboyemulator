@@ -115,6 +115,17 @@ unsigned char* dma = address_space.dma;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
+unsigned char ram_banks[0x8000] = {0}; // Max 4 ram banks (only 2 bits to change it), each has 0x2000 bytes
+
+unsigned char mbctype = 0;
+
+// Which ROM bank is currently loaded in address [0x4000 - 0x7fff]
+// Starts at one because rombank 0 is fixed in address [0x0 - 0x4000]
+unsigned char current_rom_bank = 1;
+// Which RAM bank is currently loaded in address []
+unsigned char current_ram_bank = 0;
+unsigned char rambanks_enabled = 0;
+unsigned char changing_rombank = 1; // Doing ROM Bank or RAM Bank change?
 
 unsigned char cartridge_loaded = 0; // 0 if cartridge isn't loaded, 1 if it's partially loaded (all except first 256 bytes), 2 if it's fully loaded
 
@@ -159,7 +170,24 @@ void check_disable_bootrom() {
     if (cartridge_loaded == 1 && *disabled_bootrom) {
 
         cartridge_loaded++;
+        // Replace bootrom in memory with game rom data
         memcpy(memory, rom, 256);
+
+        // Read the MBC type
+        switch (memory[0x147]) {
+            case 1:
+            case 2:
+            case 3:
+                mbctype = 1;
+                break;
+            case 5:
+            case 6:
+                mbctype = 2;
+                break;
+        }
+
+        current_rom_bank = 1;
+
     }
 
 }
@@ -174,21 +202,117 @@ void dma_transfer(unsigned char data) {
     // And write to FE00 until FE9F
     unsigned short address = data << 8;
     for (int i = 0; i < 0xA0; i++)
-        memory[address + i] = memory[0xfe00 + i];
+         memory[0xfe00 + i] = memory[address + i];
 
 }
 
 
-int mmu_write8bit(unsigned short memdestination, unsigned char data) {
+int mmu_write8bit(unsigned short address, unsigned char data) {
 
     int extra_cycles = 0;
 
-    if (&memory[memdestination] == tdiv) {
+    if (address < 0x8000) {
+        // Read only memory
+
+        // When the game writes to the ROM addresses (here), it is trapped and decyphered
+        // To change the Banks
+
+        // Handle Bank changing
+
+        // Enable RAM Banking
+        if (address < 0x2000 && (mbctype == 1 || mbctype == 2)) {
+
+            // MBC 2 is the same as for MBC1 but the 4th bit must be 0, if it's 1 do nothing
+            if (mbctype == 2 && address & 8)
+                return extra_cycles;
+
+            // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
+            if ((address & 0xF) == 0xa)
+                rambanks_enabled = 1;
+            else if ((address & 0xF) == 0)
+                rambanks_enabled = 0;
+
+        }
+        // Change ROM Bank
+        else if (address >= 0x2000 && address < 0x4000 && (mbctype == 1 || mbctype == 2)) {
+
+            // Change bits 0-4 of the current rom bank number in MBC1 or bits 0-3 in MBC2 
+
+            if (mbctype == 2) {
+                // lower nibble (first 4 bits) sets rom bank
+                // it can never be 0 bc rom bank 0 is fixed in 0-0x4000. We treat 0 as rom bank 1
+                current_rom_bank = address & 0xF ? address & 0xF : 1;
+
+            }
+            else if (mbctype == 1) {
+
+                // clear and then set 5 lower bits
+                
+                current_rom_bank &= 0xE0; // 1110 0000
+                current_rom_bank |= address & 0x1F; // 0001 1111
+                current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0 
+            }
+
+
+        }
+        // Change ROM Bank upper part or RAM bank
+        else if (address >= 0x4000 && address < 0x6000 && mbctype == 1) {
+
+            // If doing ROM Bank change set upper 3 bits
+
+            if (changing_rombank) {
+
+                // Do ROM - 3 upper bits - change
+
+                current_rom_bank &= 0x1F; // Keep only lower 5 bits
+                current_rom_bank |= address & 0xE0; // Add upper 3 bits from the lower byte of the address
+                current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0
+            }
+            else {
+            
+                // Do RAM change
+                current_ram_bank = address & 0x3; // Ram bank is selected 
+            }
+
+        }
+        // Change *changing* to ROM Bank or RAM Bank
+        else if (address >= 0x6000 && address < 0x8000 && mbctype == 1) {
+
+            // The lowest bit defines whether it's ROM or RAM changing
+            // If it's 0 -> ROM, 1 -> RAM
+            changing_rombank = !(address & 1);
+
+            // When changing ROM Bank set RAM Bank to 0 bc the gameboy can only use rambank 0 in this mode
+            if (changing_rombank)
+                current_ram_bank = 0;
+
+        }
+        
+
+        return extra_cycles;
+    }
+    else if (address >= 0xa000 && address < 0xc000) {
+
+        // Writing to RAM Bank address
+
+        if (rambanks_enabled) {
+
+            ram_banks[(address - 0xa00) + current_ram_bank*0x2000] = data;
+        }
+
+        return extra_cycles;
+    }
+    else if (address >= 0xfea0 && address < 0xfeff) {
+
+        // Unusable area
+        return extra_cycles;
+    }
+    else if (&memory[address] == tdiv) {
 
         // If you try writing to DIV, it'll be set to 0
-        memory[memdestination] = 0;
+        memory[address] = 0;
     }
-    else if (&memory[memdestination] == dma) {
+    else if (&memory[address] == dma) {
         
         // Writing to DMA Transfer and Start address
 
@@ -196,7 +320,7 @@ int mmu_write8bit(unsigned short memdestination, unsigned char data) {
         dma_transfer(data);
         extra_cycles = 160;
     }
-    else if (memdestination <= 0x9fff && memdestination >= 0x8000) {
+    else if (address <= 0x9fff && address >= 0x8000) {
 
         // Destination is VRAM
 
@@ -209,7 +333,7 @@ int mmu_write8bit(unsigned short memdestination, unsigned char data) {
             return extra_cycles;
         }
     }
-    else if (memdestination <= 0xfe9f && memdestination >= 0xfe00) {
+    else if (address <= 0xfe9f && address >= 0xfe00) {
 
         // Destination is OAM
 
@@ -223,17 +347,24 @@ int mmu_write8bit(unsigned short memdestination, unsigned char data) {
         }
 
     }
+    else if (address >= 0xe000 && address < 0xfe00) {
+
+        // Writing to ECHO ram also writes in RAM
+
+        memory[address - 0x2000] = data;
+
+    }
 
 
-    memory[memdestination] = data;
+    memory[address] = data;
 
     return extra_cycles;
 }
 
-void mmu_read8bit(unsigned char* destination, unsigned short memdestination) {
+void mmu_read8bit(unsigned char* destination, unsigned short address) {
 
 
-    if (memdestination <= 0x9fff && memdestination >= 0x8000) {
+    if (address <= 0x9fff && address >= 0x8000) {
 
         // Reading from VRAM
 
@@ -247,7 +378,7 @@ void mmu_read8bit(unsigned char* destination, unsigned short memdestination) {
             return;
         }
     }
-    else if (memdestination <= 0xfe9f && memdestination >= 0xfe00) {
+    else if (address <= 0xfe9f && address >= 0xfe00) {
 
         // Reading from OAM
 
@@ -262,7 +393,26 @@ void mmu_read8bit(unsigned char* destination, unsigned short memdestination) {
         }
 
     }
+    else if (address >= 0x4000 && address < 0x8000) {
 
-    *destination = memory[memdestination];
+        // Reading from ROM Bank
+        
+        // Read from current rom bank
+    
+        // Make address be relative to 0 by subtracting 0x4000, and add the current rom bank (each has 0x4000 size)
+        *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
+        return;
+    }
+    else if (address >= 0xA000 && address < 0xC000) {
+
+        // Reading from RAM Bank
+        
+        // Read from current ram bank
+        // rebase address and offset to the correct ram bank (each has 0x2000 size)
+        *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
+        return;
+    }
+
+    *destination = memory[address];
 
 }

@@ -104,8 +104,9 @@ static void boot() {
 
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
+
+    char* romstring = "tetris-jp.gb";
 
     char* testing = NULL;
     if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {
@@ -122,11 +123,15 @@ int main(int argc, char *argv[])
             if (argc > 4) debug_from = atoi(argv[4]);
             else debug_from = 0x100;
         }
-
+    }
+    else if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='r') {
+        if (argc > 2)
+            romstring = argv[2];
+        else
+            exit(3);
     }
 
-
-    insert_cartridge("tetris-jp.gb");
+    insert_cartridge(romstring);
 
     init_gui();
 
