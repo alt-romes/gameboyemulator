@@ -33,7 +33,8 @@ union address_space {
         unsigned char unusable[0x60]; // Not usable
         union {
             struct {
-                unsigned char padding[0x4];
+                unsigned char joyp[1];
+                unsigned char padding[0x3];
                 unsigned char tdiv[1]; // Timer divider register $FF04 incremented at 16384Hz
                 unsigned char tima[1]; /* Timer counter register $FF05 incremented at frequency in TAC 
                                           Requests interrupt when it overflows */
@@ -112,6 +113,7 @@ unsigned char* tima = address_space.tima;
 unsigned char* tma = address_space.tma;
 unsigned char* tac = address_space.tac;
 unsigned char* dma = address_space.dma;
+unsigned char* joyp = address_space.joyp;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000];
@@ -214,8 +216,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
     if (address < 0x8000) {
         // Read only memory
 
-        // When the game writes to the ROM addresses (here), it is trapped and decyphered
-        // To change the Banks
+        // When the game writes to the ROM addresses (here), it is trapped and decyphered to change the Banks
 
         // Handle Bank changing
 
@@ -223,13 +224,13 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         if (address < 0x2000 && (mbctype == 1 || mbctype == 2)) {
 
             // MBC 2 is the same as for MBC1 but the 4th bit must be 0, if it's 1 do nothing
-            if (mbctype == 2 && address & 8)
+            if (mbctype == 2 && data & 8)
                 return extra_cycles;
 
             // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
-            if ((address & 0xF) == 0xa)
+            if ((data & 0xF) == 0xa)
                 rambanks_enabled = 1;
-            else if ((address & 0xF) == 0)
+            else if ((data & 0xF) == 0)
                 rambanks_enabled = 0;
 
         }
@@ -241,7 +242,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
             if (mbctype == 2) {
                 // lower nibble (first 4 bits) sets rom bank
                 // it can never be 0 bc rom bank 0 is fixed in 0-0x4000. We treat 0 as rom bank 1
-                current_rom_bank = address & 0xF ? address & 0xF : 1;
+                current_rom_bank = data & 0xF ? data & 0xF : 1;
 
             }
             else if (mbctype == 1) {
@@ -249,7 +250,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // clear and then set 5 lower bits
                 
                 current_rom_bank &= 0xE0; // 1110 0000
-                current_rom_bank |= address & 0x1F; // 0001 1111
+                current_rom_bank |= data & 0x1F; // 0001 1111
                 current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0 
             }
 
@@ -265,13 +266,13 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // Do ROM - 3 upper bits - change
 
                 current_rom_bank &= 0x1F; // Keep only lower 5 bits
-                current_rom_bank |= address & 0xE0; // Add upper 3 bits from the lower byte of the address
+                current_rom_bank |= data & 0xE0; // Add upper 3 bits from the lower byte of the address
                 current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0
             }
             else {
             
                 // Do RAM change
-                current_ram_bank = address & 0x3; // Ram bank is selected 
+                current_ram_bank = data & 0x3; // Ram bank is selected 
             }
 
         }
@@ -280,7 +281,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
             // The lowest bit defines whether it's ROM or RAM changing
             // If it's 0 -> ROM, 1 -> RAM
-            changing_rombank = !(address & 1);
+            changing_rombank = !(data & 1);
 
             // When changing ROM Bank set RAM Bank to 0 bc the gameboy can only use rambank 0 in this mode
             if (changing_rombank)
@@ -306,6 +307,29 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // Unusable area
         return extra_cycles;
+    }
+    else if (address == 0xFF00) {
+
+        // Writing to joypad
+
+        // TODO: This might not be correct, and maybe instead when reading FF00 i should
+        // get the correct keys pressed from joypad_state variable in ppu.c
+
+
+        // Assuming I could do it like this
+
+        // When writing to joypad and *effectively changing* type from input to standard, all pressed buttons must be reset
+
+        // bit 4 selects direction keys
+        // bit 5 selects button keys
+        if ((data & 0x10 && !(*joyp & 0x10)) ||
+                (data & 0x20 && !(*joyp & 0x20))) {
+
+            // Clear lower 4 bits to reset inputs
+            data &= 0xF0;
+
+        }
+
     }
     else if (&memory[address] == tdiv) {
 

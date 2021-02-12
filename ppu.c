@@ -28,6 +28,7 @@ static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
 static int graphics_enabled = 0;
 
+static unsigned char joypad_state = 0;
 
 
 /*---- LCD Control Status -----------------------------------------*/
@@ -137,6 +138,127 @@ static void set_lcd_stat() {
 
 
 }
+
+
+/*---- Key Events -------------------------------------------------*/
+
+static void handle_input(GLFWwindow* window, int key, int scancode, int action, int mods) {
+
+    /* Joypad Key has 8 bits for 8 buttons
+     * Bit 7 = Standard Start
+     * Bit 6 = Standard Select
+     * Bit 5 = Standard Button B
+     * Bit 4 = Standard Button A
+     * Bit 3 = Direction Input Down
+     * Bit 2 = Direction Input Up
+     * Bit 1 = Direction Input Left
+     * Bit 0 = Direction Input Right
+     */
+
+    /* Joypad Register $FF00 holds this information:
+     
+        Bit 7 - Not used
+        Bit 6 - Not used
+        Bit 5 - P15 Select Button Keys      (0=Select)
+        Bit 4 - P14 Select Direction Keys   (0=Select)
+        Bit 3 - P13 Input Down  or Start    (0=Pressed) (Read Only)
+        Bit 2 - P12 Input Up    or Select   (0=Pressed) (Read Only)
+        Bit 1 - P11 Input Left  or Button B (0=Pressed) (Read Only)
+        Bit 0 - P10 Input Right or Button A (0=Pressed) (Read Only)
+
+    */
+
+
+
+    unsigned char joypad_key = 0;
+    switch (key) {
+        case GLFW_KEY_D:
+            // Right direction
+            joypad_key = 1;
+            break;
+        case GLFW_KEY_A:
+            // Left
+            joypad_key = 1 << 1;
+            break;
+        case GLFW_KEY_W:
+            // Up
+            joypad_key = 1 << 2;
+            break;
+        case GLFW_KEY_S:
+            // Down
+            joypad_key = 1 << 3;
+            break;
+        case GLFW_KEY_J:
+            // Button A
+            joypad_key = 1 << 4;
+            break;
+        case GLFW_KEY_K:
+            // Button B
+            joypad_key = 1 << 5;
+            break;
+        case GLFW_KEY_N:
+            // Standard Select
+            joypad_key = 1 << 6;
+            break;
+        case GLFW_KEY_M:
+            // Standard Start
+            joypad_key = 1 << 7;
+            break;
+    }
+
+    if (action == GLFW_PRESS) {
+
+        // When pressing a key we might have to request an interrupt - if it weren't already pressed
+
+        int was_already_pressed = joypad_key & joypad_state;
+        
+        if (!was_already_pressed) {
+
+            joypad_state |= joypad_key; // Set the key as pressed
+
+            // The upper 4 bits are for standard inputs, the lower 4 are for direction inputs
+
+            // $FF00 bit 4 selects direction keys
+            if (joypad_key < 0x10 && *joyp & 0x10) {
+                // Key pressed is a standard input and the type set
+                // in the joypad register ($FF00) is standard
+
+                *joyp |= joypad_key;
+
+            }
+            // $FF00 bit 5 selects button keys
+            else if (joypad_key > 0xF && *joyp & 0x20) {
+
+                // Key pressed is a direction input and the type set
+                // in the joypad register ($FF00) is direction
+
+               *joyp |= joypad_key >> 4; 
+
+            }
+            else
+                return;
+
+            request_interrupt(JOYPAD_INTERRUPT);
+
+        }
+
+    }
+    else if (action == GLFW_RELEASE) {
+
+        // The button is no longer pressed so clear it from the joypad state
+        joypad_state &= ~joypad_key;
+
+        if (joypad_key > 0xF)
+            joypad_key >>= 4;
+
+        // Remove the button press in the joypad register
+        *joyp &= ~joypad_key;
+
+    }
+
+}
+
+
 
 
 
@@ -304,6 +426,11 @@ static void init_gui() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glClearColor(0, 0, 0, 1);
+
+    
+    /* Set input handler for key presses */
+    glfwSetKeyCallback(window, handle_input);
+
 #endif
 
 #ifdef _WIN32
@@ -323,8 +450,6 @@ static void render_frame() {
 
 #ifdef __APPLE__
         if(!glfwWindowShouldClose(window)) {
-
-            /* processInput(window); ?? */
 
             /* Render here */
 
