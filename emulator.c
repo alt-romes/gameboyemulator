@@ -5,8 +5,6 @@
 
 unsigned long debugger = 0;
 
-// Declare process input so that when reading from $ff00 (joypad) it can be called explicitely
-void process_input();
 // I should really do proper header files i'm being too lazy
 #include "memory.c"
 #include "cpu.c"

@@ -22,6 +22,8 @@
 #include <SDL.h>
 #endif
 
+#define SCREEN_MULTIPLIER 4
+
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
 static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
@@ -244,8 +246,15 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glViewport(0, 0, SCREEN_WIDTH*SCREEN_MULTIPLIER, SCREEN_HEIGHT*SCREEN_MULTIPLIER);
 }
+
+static void window_size_callback(GLFWwindow* window, int width, int height) {
+    // make sure the viewport matches the new window dimensions; note that width and
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
+}
+
 #endif
 
 #ifdef _WIN32
@@ -262,8 +271,9 @@ static void init_gui() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    /* glfwWindowHint(GLFW_DECORATED, GL_FALSE); */
 
-    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Gameboy", NULL, NULL);
+    window = glfwCreateWindow(SCREEN_WIDTH*SCREEN_MULTIPLIER, SCREEN_HEIGHT*SCREEN_MULTIPLIER, "Gameboy", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -273,6 +283,9 @@ static void init_gui() {
     glfwMakeContextCurrent(window);
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetWindowSizeCallback(window, window_size_callback);
+
+    glfwSetWindowAspectRatio(window, 1, 1);
 
     /* Glew initialization */
     if (glewInit() != GLEW_OK) exit(1);
