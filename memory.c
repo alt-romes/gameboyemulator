@@ -192,6 +192,8 @@ void check_disable_bootrom() {
                 break;
         }
         
+        printf("Loaded cartridge.\n");
+
         printf("MBC TYPE %d\n", mbctype);
 
     }
@@ -200,7 +202,7 @@ void check_disable_bootrom() {
 
 void dma_transfer(unsigned char data) {
 
-    printf("DMA transfer\n");
+    /* printf("DMA transfer\n"); */
 
     // The written data value specifies the transfer source address divided by 0x100
     // By multiplying by 0x100 (which is << 8) we get the source address
@@ -223,8 +225,6 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         // Read only memory
 
         // When the game writes to the ROM addresses (here), it is trapped and decyphered to change the Banks
-
-        printf("Write ROM address %x\n", address);
 
         // Handle Bank changing
 
@@ -324,6 +324,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
     }
     else if (address == 0xFF00) {
 
+
         // Writing to joypad
 
         // TODO: This might not be correct, and maybe instead when reading FF00 i should
@@ -334,15 +335,21 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // When writing to joypad and *effectively changing* type from input to standard, all pressed buttons must be reset
 
-        // bit 4 selects direction keys
-        // bit 5 selects button keys
-        if ((data & 0x10 && !(*joyp & 0x10)) ||
-                (data & 0x20 && !(*joyp & 0x20))) {
+        // if one of the bits is changing the input type, reset pressed keys
+        /* if ((data & 0x10 && !(*joyp & 0x10)) || */
+        /*         (data & 0x20 && !(*joyp & 0x20))) { */
 
-            // Clear lower 4 bits to reset inputs
-            data &= 0xF0;
+        /*     // Reset lower 4 bits to reset inputs */
+        /*     data |= 0xF; */
+        /* } */
 
-        }
+        // I guess the code above doesn't work, and i actually need to reset the lower nibble everytime $ff00 is written...
+        data |= 0xF;
+
+        // Set data directly to joypad (this will set bit 4 and 5) along with the reset controls if that was the case
+        *joyp = data;
+
+        return extra_cycles;
 
     }
     else if (&memory[address] == tdiv) {
@@ -433,6 +440,13 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         }
 
     }
+    else if (&memory[address] == joyp) { // $0xFF00
+
+        
+        *destination = *joyp; 
+
+        return;
+    }
     else if (address == 0xFF4D) {
 
         // When reading speed switching for GBC just return FF to avoid bugs? (i'm not doing GBC)
@@ -440,7 +454,7 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         *destination = 0xFF;
         return;
 
-    }
+    } 
     else if (address >= 0x4000 && address < 0x8000) {
 
         // Reading from ROM Bank

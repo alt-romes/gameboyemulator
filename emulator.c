@@ -5,6 +5,9 @@
 
 unsigned long debugger = 0;
 
+// Declare process input so that when reading from $ff00 (joypad) it can be called explicitely
+void process_input();
+// I should really do proper header files i'm being too lazy
 #include "memory.c"
 #include "cpu.c"
 #include "ppu.c"
@@ -25,6 +28,44 @@ unsigned long emulation_time = 0;   /* time is in cycles */
 unsigned int debugger_offset = 0;
 unsigned int debug_from = -1;
 
+void process_input() {
+    
+    // Before applying new states, reset the previous ones to avoid bugs
+    /* *joyp |= 0xF; */ // No longer needed bc no longer allow ANY write to the lower 4 bits
+
+    // joypad_state is defined in memory after reading from $FF00 joypad reg
+    // It holds information about the keys pressed
+    // The upper 4 bits are for standard inputs, the lower 4 are for direction inputs
+
+    /* printf("Before pressing, joypad is %x and joypad state is %x\n", *joyp, joypad_state); */
+    // $FF00 bit 4 with value 0 selects direction keys
+    if ((joypad_state & 0xF) && !(*joyp & 0x10)) {
+
+        // Key pressed is a standard input and the type set
+        // in the joypad register ($FF00) is standard
+
+        *joyp &= ~(joypad_state & 0xF);
+
+    }
+    // $FF00 bit 5 with value 0 selects button keys
+    else if ((joypad_state & 0xF0) && !(*joyp & 0x20)) {
+
+        // Key pressed is a direction input and the type set
+        // in the joypad register ($FF00) is direction
+
+       *joyp &= ~(joypad_state >> 4);
+
+    }
+    else {
+
+        // If no joypad_state is set, no key was inputted, so reset the key pressed in $ff00
+
+        return;
+    }
+
+    request_interrupt(JOYPAD_INTERRUPT);
+
+}
 
 /*
  *  Update is called 60 times per second
@@ -70,7 +111,7 @@ void update() {
 
         timer(cycles); /* Same thing as the PPU goes for timers */
 
-        // TODO: Receive inputs/request interrupts?
+        process_input();
 
         cycles_this_frame += cycles;
     }
@@ -81,8 +122,19 @@ void update() {
     emulation_time += cycles_this_frame;
 }
 
+static void boot() {
+
+    // Set keys as "unpressed" when the nintendo starts
+    *joyp |= 0xF;
+
+    printf("Booting...\n");
+
+}
+
 
 void emulate() {
+
+    boot();
 
     while (1) {
 
@@ -98,11 +150,6 @@ void emulate() {
 
 }
 
-static void boot() {
-
-    printf("Booting...\n");
-
-}
 
 int main(int argc, char *argv[]) {
 
@@ -146,7 +193,6 @@ int main(int argc, char *argv[]) {
 
         boot_tests();
     }
-
 
     emulate();
 

@@ -28,7 +28,7 @@ static int scanline_cycles_left = TOTAL_SCANLINE_CYCLES;
 
 static int graphics_enabled = 0;
 
-static unsigned char joypad_state = 0;
+unsigned char joypad_state = 0;
 
 
 /*---- LCD Control Status -----------------------------------------*/
@@ -204,55 +204,22 @@ static void handle_input(GLFWwindow* window, int key, int scancode, int action, 
             // Standard Start
             joypad_key = 1 << 7;
             break;
+        default:
+            // When it's not one of those keys do nothing
+            return;
     }
 
     if (action == GLFW_PRESS) {
 
-        // When pressing a key we might have to request an interrupt - if it weren't already pressed
-
-        int was_already_pressed = joypad_key & joypad_state;
-        
-        if (!was_already_pressed) {
-
-            joypad_state |= joypad_key; // Set the key as pressed
-
-            // The upper 4 bits are for standard inputs, the lower 4 are for direction inputs
-
-            // $FF00 bit 4 selects direction keys
-            if (joypad_key < 0x10 && *joyp & 0x10) {
-                // Key pressed is a standard input and the type set
-                // in the joypad register ($FF00) is standard
-
-                *joyp |= joypad_key;
-
-            }
-            // $FF00 bit 5 selects button keys
-            else if (joypad_key > 0xF && *joyp & 0x20) {
-
-                // Key pressed is a direction input and the type set
-                // in the joypad register ($FF00) is direction
-
-               *joyp |= joypad_key >> 4; 
-
-            }
-            else
-                return;
-
-            request_interrupt(JOYPAD_INTERRUPT);
-
-        }
+        // Set the key as pressed:
+        // this state is used every emulator loop to check for inputs pressed
+        joypad_state |= joypad_key;
 
     }
     else if (action == GLFW_RELEASE) {
 
         // The button is no longer pressed so clear it from the joypad state
         joypad_state &= ~joypad_key;
-
-        if (joypad_key > 0xF)
-            joypad_key >>= 4;
-
-        // Remove the button press in the joypad register
-        *joyp &= ~joypad_key;
 
     }
 

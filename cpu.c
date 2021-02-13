@@ -730,6 +730,8 @@ static void swap (unsigned char* reg) {
 static void stop_cpu() {
 
     stopped = 1;
+
+    printf("~Stopped.\n");
 }
 
 static void ccf_op() {
