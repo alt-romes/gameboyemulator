@@ -1816,6 +1816,9 @@ static int execute() {
 
     unsigned char opcode = memory[registers.pc++];
 
+    if (opcode == 0xe4)
+        printf("UNKNOWN CODE IN PC: %x\n", registers.pc-1);
+
     int time;   /* time is in cycles */
     extra_instruction_cycles = 0;
     struct instruction instruction;

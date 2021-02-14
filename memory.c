@@ -14,6 +14,7 @@
  *
  */
 #include <string.h>
+#include <assert.h>
 
 // Gameboy address space (RAM + VRAM?)
 union address_space {
@@ -117,18 +118,17 @@ unsigned char* joyp = address_space.joyp;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000] = {0};
-unsigned char ram_banks[0x8000] = {0}; // Max 4 ram banks (only 2 bits to change it), each has 0x2000 bytes
+unsigned char ram_banks[0x8000] = {0}; // Max 4 ram banks (only 2 bits to change it), RAM can be 2KB, 8KB or 32KB (in the form of 4 8KB banks)
 
 unsigned char mbctype = 0;
+unsigned char romsizetype = 0;
+unsigned char ramsizetype = 0;
 
-// Which ROM bank is currently loaded in address [0x4000 - 0x7fff]
-// Starts at one because rombank 0 is fixed in address [0x0 - 0x4000]
-unsigned char current_rom_bank = 1;
-// Which RAM bank is currently loaded in address []
-unsigned char current_ram_bank = 0;
-unsigned char rambanks_enabled = 0;
-unsigned char rambanks_can_be_enabled = 0;
-unsigned char changing_rombank = 1; // Doing ROM Bank or RAM Bank change?
+unsigned char ram_enable_register = 0;
+unsigned char rom_bank_number = 1; // 5 bit register selects ROM bank number
+unsigned char ram_or_upperrom_bank_number = 0; // 2 bits register selects ROM bank number upper 2 bits or RAM bank number
+unsigned char banking_mode_select = 0; // 1 bit register selects between two MBC1 banking modes (mode 0 or 1)
+
 
 unsigned char cartridge_loaded = 0; // 0 if cartridge isn't loaded, 1 if it's partially loaded (all except first 256 bytes), 2 if it's fully loaded
 
@@ -179,22 +179,15 @@ void check_disable_bootrom() {
         memcpy(memory, rom, 256);
 
         // Read the MBC type
-        switch (memory[0x147]) {
-            case 1:
-            case 2:
-                rambanks_can_be_enabled = 1;
-            case 3:
-                mbctype = 1;
-                break;
-            case 5:
-            case 6:
-                mbctype = 2;
-                break;
-        }
+        mbctype = memory[0x147];
+        romsizetype = memory[0x148];
+        ramsizetype = memory[0x149];
         
         printf("Loaded cartridge.\n");
 
         printf("MBC TYPE %d\n", mbctype);
+        printf("ROM SIZE TYPE%d\n", romsizetype);
+        printf("RAM SIZE TYPE%d\n", ramsizetype);
 
     }
 
@@ -229,80 +222,88 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         // Handle Bank changing
 
         // Enable RAM Banking
-        if (address < 0x2000 && (mbctype == 1 || mbctype == 2)) {
+        if (address < 0x2000 && mbctype >= 1 && mbctype <= 3) {
 
-            // MBC 2 is the same as for MBC1 but the 4th bit must be 0, if it's 1 do nothing
-            if (mbctype == 2 && data & 8)
-                return extra_cycles;
+            // MBC1
+            if (mbctype >= 1 && mbctype <= 3) {
 
-            // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
-            if ((data & 0xF) == 0xa)
-                rambanks_enabled = rambanks_can_be_enabled;
-            else
-                rambanks_enabled = 0;
+                // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
+                if ((data & 0xF) == 0xA) {
+
+                    printf("Enabled RAM\n");
+                    ram_enable_register = 1;
+                }
+                else {
+
+                    printf("Disabled RAM\n");
+                    ram_enable_register = 0;
+                }
+
+            }
 
         }
         // Change ROM Bank
-        else if (address >= 0x2000 && address < 0x4000 && (mbctype == 1 || mbctype == 2)) {
+        else if (address >= 0x2000 && address < 0x4000) {
 
-            // Change bits 0-4 of the current rom bank number in MBC1 or bits 0-3 in MBC2 
+            // MBC1
+            if (mbctype >= 1 && mbctype <= 3) {
 
-            printf("Changing ROM Bank with data %d\n", data);
+                // Write to rom_bank_number (5bit register from 0x1 - 0x1F)
 
-            if (mbctype == 2) {
-                // lower nibble (first 4 bits) sets rom bank
-                // it can never be 0 bc rom bank 0 is fixed in 0-0x4000. We treat 0 as rom bank 1
-                current_rom_bank = data & 0xF ? data & 0xF : 1;
+                printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data);
 
+                if (romsizetype == 0) // no banking - bank number should be always 1
+                    data = 1;
+                else if (romsizetype == 1) // 4 banks can be addressed with 2 bits
+                    data &= 3; // 0..0011
+                else if (romsizetype == 2) // 8 banks can be addressed with 3 bits
+                    data &= 7; // 0..0111
+                else if (romsizetype == 3) // 16 banks
+                    data &= 0xf; // 0..1111
+                else
+                    data &= 0x1f; // 0001 1111
+
+                rom_bank_number = data ? data : 1; // can't be 0
+
+                printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number);
             }
-            else if (mbctype == 1) {
-
-                // clear and then set 5 lower bits
-                
-                current_rom_bank &= 0xE0; // 1110 0000
-                current_rom_bank |= data & 0x1F; // 0001 1111
-                current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0 
-            }
-
 
         }
         // Change ROM Bank upper part or RAM bank
-        else if (address >= 0x4000 && address < 0x6000 && mbctype == 1) {
+        else if (address >= 0x4000 && address < 0x6000) {
 
-            printf("Changing ROM bank upper bits %x\n", address);
+            printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data);
 
-            // If doing ROM Bank change set upper 3 bits
+            // MBC1
+            if (mbctype >= 1 && mbctype <= 3) {
 
-            if (changing_rombank) {
+                // 2 bit register selects RAM Bank or specify two upper bits of the ROM Bank number
+                // as long as one of either RAM or ROM is large enough
 
-                // Do ROM - 2 upper bits - change
+                if (romsizetype > 4 || ramsizetype == 3) {
 
-                current_rom_bank &= 0x1F; // Keep only lower 5 bits
-                current_rom_bank |= (data & 0x3) << 5; // Add additional upper 2 bits from the lower byte of the address
-                current_rom_bank = current_rom_bank ? current_rom_bank : 1; // Can't be 0
-            }
-            else {
-            
-                // Do RAM change
-                current_ram_bank = data & 0x3; // Ram bank is selected 
+                    ram_or_upperrom_bank_number = data & 3;
+                }
+
             }
 
         }
         // Change *changing* to ROM Bank or RAM Bank
-        else if (address >= 0x6000 && address < 0x8000 && mbctype == 1) {
+        else if (address >= 0x6000 && address < 0x8000) {
 
-            printf("Changing changing ROM or RAM bank %d\n", address);
+            // MBC1
+            if (mbctype >= 1 && mbctype <= 3) {
 
-            // The lowest bit defines whether it's ROM or RAM changing
-            // If it's 0 -> ROM, 1 -> RAM
-            changing_rombank = !(data & 1);
+                // is a 1 bit register
 
-            // When changing ROM Bank set RAM Bank to 0 bc the gameboy can only use rambank 0 in this mode
-            if (changing_rombank)
-                current_ram_bank = 0;
+                banking_mode_select = data & 1; 
+
+                // For Large RAM cart, switching to mode 1 enables RAM Banking and switches the bank selected
+                // For Large ROM carts, switching to mode 1 makes bank 0x20, 0x40, 0x60 bankable through 0000-3fff
+
+            }
 
         }
-        
 
         return extra_cycles;
     }
@@ -310,13 +311,21 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // Writing to RAM Bank address
 
-        if (rambanks_enabled) {
+        if (ramsizetype >= 3 && ram_enable_register == 1 && banking_mode_select == 1) {
 
+            unsigned char current_ram_bank = ram_or_upperrom_bank_number;
             ram_banks[(address - 0xa00) + current_ram_bank*0x2000] = data;
+
+            return extra_cycles;
         }
 
-        return extra_cycles;
+        // If there's no ram or if it's disabled don't allow writing
+        else if (ramsizetype == 0 || ram_enable_register == 0)
+            return extra_cycles;
+
     }
+
+    // Other
     else if (address >= 0xfea0 && address < 0xfeff) {
 
         // Unusable area
@@ -455,27 +464,93 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         return;
 
     } 
+
+    // MBC Control
+    else if (address < 0x4000) {
+
+        // MBC1 in mode 1 with large ROM (>=1MB)
+        if (mbctype >= 1 && mbctype <= 3 && banking_mode_select == 1 && romsizetype > 4) {
+
+            // TODO: Multicarts MBC1m use one less bit in rom bank number and shift by 4 only
+            unsigned char current_rom_bank = rom_bank_number | (ram_or_upperrom_bank_number << 5);
+
+            if (current_rom_bank % 0x20 == 0) {
+
+                // Access bank 00, 20h, 40h or 60h
+
+                printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
+                *destination = rom[address + current_rom_bank*0x4000]; // 16K banks
+                return;
+            }
+            
+        }
+
+        printf("Accessing bank 0 normally\n");
+
+    }
     else if (address >= 0x4000 && address < 0x8000) {
 
         // Reading from ROM Bank
-        
-        // Read from current rom bank
-        /* printf("Reading from 0x4000-0x8000, current rom bank is %d, desired address was %x, actual address is %x\n", current_rom_bank, address, (address - 0x4000) + current_rom_bank*0x4000); */
     
-        // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
-        *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
-        return;
+        // MBC1
+        if (mbctype >= 1 && mbctype <= 3) {
+
+            // TODO: Multicarts MBC1m use one less bit in rom bank number and shift by 4 only
+            unsigned char current_rom_bank = rom_bank_number | (ram_or_upperrom_bank_number << 5);
+
+            // Can't be 00h 20h 40h or 60h, automatically access next bank
+            if(current_rom_bank % 20 == 0)
+                current_rom_bank++;
+
+
+            // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
+            printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
+            *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
+            return;
+
+        }
+
+        printf("Accessing bank 1 normally\n");
+
     }
-    else if (address >= 0xA000 && address < 0xC000 && mbctype > 0 && rambanks_enabled) {
+    else if (address >= 0xA000 && address < 0xC000) {
 
         // Reading from RAM Bank
        
-        printf("reading from RAM BANK\n");
-        
-        // Read from current ram bank
-        // rebase address and offset to the correct ram bank (each has 0x2000 size)
-        *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
-        return;
+        // MBC1 with RAM and more than 1 8K RAM Bank
+        if (mbctype >= 1 && mbctype <= 3) {
+
+            // No RAM
+            if (ramsizetype == 0) {
+                // No RAM returns undefined when reading (usually 0xFF)
+                *destination = 0xFF;
+                return;
+            }
+
+            // RAM size 2KB
+            else if (ramsizetype == 1 && address - 0xA000 >= 0x2000) {
+
+                // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
+                *destination = 0xFF;
+                return;
+            }
+
+            // When RAM is within 2KB or is 8KB, access space normally as if it was the 1 bank dedicated
+
+            // Big RAM and mode is 1 and if ram is enabled
+            else if (ramsizetype >= 3 && banking_mode_select == 1 && ram_enable_register == 1) {
+
+                // multiple RAM Banks - address with rambank selector 
+
+                unsigned char current_ram_bank = ram_or_upperrom_bank_number;
+                *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
+                return;
+
+            }
+                
+
+        }
+
     }
 
     *destination = memory[address];

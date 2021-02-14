@@ -198,11 +198,11 @@ static void handle_input(GLFWwindow* window, int key, int scancode, int action, 
             // Button B
             joypad_key = 1 << 5;
             break;
-        case GLFW_KEY_N:
+        case GLFW_KEY_M:
             // Standard Select
             joypad_key = 1 << 6;
             break;
-        case GLFW_KEY_M:
+        case GLFW_KEY_N:
             // Standard Start
             joypad_key = 1 << 7;
             break;
@@ -285,7 +285,7 @@ static void init_gui() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetWindowSizeCallback(window, window_size_callback);
 
-    glfwSetWindowAspectRatio(window, 1, 1);
+    glfwSetWindowAspectRatio(window, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     /* Glew initialization */
     if (glewInit() != GLEW_OK) exit(1);
@@ -565,11 +565,11 @@ static void render_sprites(unsigned char pallete_colors[4]) {
             unsigned char sprite_line = (*lcd_ly - ypos)*2;
 
             // read the y axis backwards (if we were reading line 1 we read line 8 instead)
-            if (attributes & 0x40) // Y Flip
-                sprite_line = (sprite_line-ypos) * -1;
+            /* if (attributes & 0x40) // Y Flip */
+            /*     sprite_line = (sprite_line-ypos) * -1; */
 
             // Address for line in the tile
-            unsigned short line_in_tile_address = tileaddress + sprite_line + sprite_line;
+            unsigned short line_in_tile_address = tileaddress + sprite_line;
 
             // the 2 bytes for the line of the sprite we're drawing (2 bytes represent a line)
             mmu_read8bit(&hi_color_bit, line_in_tile_address);
@@ -581,8 +581,8 @@ static void render_sprites(unsigned char pallete_colors[4]) {
                 int colorbit = 7 - horizontal_pixel;
                 
                 // Read the color bits the other way around to flip the sprite
-                if (attributes & 0x20) // X Flip
-                    colorbit = (colorbit - 7) * -1; // if it was 7, it'll read 0, if it was 6 -> 1, etc...
+                /* if (attributes & 0x20) // X Flip */
+                /*     colorbit = (colorbit - 7) * -1; // if it was 7, it'll read 0, if it was 6 -> 1, etc... */
 
                 // To get color join colorbit from byte 1 on the left and byte 2 to the right
                 unsigned char pixel_color = 0;
