@@ -19,12 +19,13 @@ To specify a ROM, run i.e. `./emulator -r prince-of-persia.gb`. By default `./em
 
 The gameboy has 8 buttons:
 
-Left <kbd>A</kbd>
-Up <kbd>W</kbd>
-Down <kbd>S</kbd>
-Right <kbd>D</kbd>
-
-Button A <kbd>J</kbd>
-Button B <kbd>K</kbd>
-Start <kbd>N</kbd>
-Select <kbd>M</kbd>
+Control | Key
+--------|-------
+Left | <kbd>A</kbd>
+Up | <kbd>W</kbd>
+Down | <kbd>S</kbd>
+Right | <kbd>D</kbd>
+Button A | <kbd>J</kbd>
+Button B | <kbd>K</kbd>
+Start | <kbd>N</kbd>
+Select | <kbd>M</kbd>
