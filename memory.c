@@ -195,6 +195,9 @@ void check_disable_bootrom() {
 
 }
 
+int mmu_write8bit(unsigned short, unsigned char);
+void mmu_read8bit(unsigned char*, unsigned short);
+
 void dma_transfer(unsigned char data) {
 
     /* printf("DMA transfer\n"); */
@@ -204,19 +207,29 @@ void dma_transfer(unsigned char data) {
     // Read from source address XX00 until XX9F (XX is defined by data)
     // And write to FE00 until FE9F
     unsigned short address = data << 8;
-    for (int i = 0; i < 0xA0; i++)
-         memory[0xfe00 + i] = memory[address + i];
+    for (int i = 0; i < 0xA0; i++) {
+
+        unsigned char aux;
+        mmu_read8bit(&aux, address + i);
+        mmu_write8bit(0xfe00 + i, aux);
+        /* printf("DMA transfer to address %x from address %x with data %x\n", 0xfe00+i, address+i, aux); */
+    }
 
 }
 
 
 int mmu_write8bit(unsigned short address, unsigned char data) {
     
+
     /* printf("Write address %x\n", address); */
 
     int extra_cycles = 0;
 
     if (address < 0x8000) {
+
+        /* printf("Writing to ROM RamEnable: %x Bank1: %x Bank2: %x ModeSelect: %x with Address: %x and data %x\n", ram_enable_register, rom_bank_number, ram_or_upperrom_bank_number, banking_mode_select, address, data); */
+        
+
         // Read only memory
 
         // When the game writes to the ROM addresses (here), it is trapped and decyphered to change the Banks
@@ -232,12 +245,12 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
                 if ((data & 0xF) == 0xA) {
 
-                    printf("Enabled RAM\n");
+                    /* printf("Enabled RAM\n"); */
                     ram_enable_register = 1;
                 }
                 else {
 
-                    printf("Disabled RAM\n");
+                    /* printf("Disabled RAM\n"); */
                     ram_enable_register = 0;
                 }
 
@@ -258,6 +271,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
                 // the 5 bit BANK1 register doesn't allow value 0 -> write 1 instead
                 rom_bank_number = data ? data : 1;
+
 
                 /* printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number); */
             }
@@ -299,9 +313,14 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         }
 
+    /* printf("Write to  %X: %02X\n", address, data); */
+
+
         return extra_cycles;
     }
     else if (address >= 0xa000 && address < 0xc000) {
+
+        /* printf("Writing to SRAM RamEnable: %x Bank1: %x Bank2: %x ModeSelect: %x\n", ram_enable_register, rom_bank_number, ram_or_upperrom_bank_number, banking_mode_select); */
 
         // Writing to RAM Bank address - only if it exists and is enabled
 
@@ -323,13 +342,14 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
 
-                printf("Writing to SRAM address %x DATA %x\n", address - 0xa000, data);
+                /* printf("Writing to SRAM address %x DATA %x\n", address - 0xa000, data); */
                 ram_banks[address - 0xa000] = data;
 
                 /* // Disable SRAM after writing to it */
                 /* printf("Disabled SRAM\n"); */
                 /* ram_enable_register = 0; */
 
+    /* printf("Write to  %X: %02X\n", address, data); */
                 return extra_cycles;
             }
             // Big RAM and mode is 1 and if ram is enabled
@@ -351,6 +371,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 /* printf("Disabled SRAM\n"); */
                 /* ram_enable_register = 0; */
                 
+    /* printf("Write to  %X: %02X\n", address, data); */
                 return extra_cycles;
 
             }
@@ -358,6 +379,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
         }
 
         // Extra RAM couldn't be written
+    /* printf("Write to  %X: %02X\n", address, data); */
         return extra_cycles;
 
     }
@@ -366,6 +388,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
     else if (address >= 0xfea0 && address < 0xfeff) {
 
         // Unusable area
+    /* printf("Write to  %X: %02X\n", address, data); */
         return extra_cycles;
     }
     else if (address == 0xFF00) {
@@ -381,20 +404,13 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // When writing to joypad and *effectively changing* type from input to standard, all pressed buttons must be reset
 
-        // if one of the bits is changing the input type, reset pressed keys
-        /* if ((data & 0x10 && !(*joyp & 0x10)) || */
-        /*         (data & 0x20 && !(*joyp & 0x20))) { */
-
-        /*     // Reset lower 4 bits to reset inputs */
-        /*     data |= 0xF; */
-        /* } */
-
-        // I guess the code above doesn't work, and i actually need to reset the lower nibble everytime $ff00 is written...
+        // I guess the code (that used to be) above doesn't work, and i actually need to reset the lower nibble everytime $ff00 is written...
         data |= 0xF;
 
         // Set data directly to joypad (this will set bit 4 and 5) along with the reset controls if that was the case
         *joyp = data;
 
+    /* printf("Write to  %X: %02X\n", address, data); */
         return extra_cycles;
 
     }
@@ -402,12 +418,15 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
         // If you try writing to DIV, it'll be set to 0
         memory[address] = 0;
+    /* printf("Write to  %X: %02X\n", address, data); */
+        return extra_cycles;
     }
     else if (&memory[address] == dma) {
         
         // Writing to DMA Transfer and Start address
 
         // Launch a DMA transfer from ROM to OAM
+        /* printf("DOING DMA TRANSFER\n"); */
         dma_transfer(data);
         extra_cycles = 160;
     }
@@ -421,6 +440,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
             // During LCDC mode 3, no data can be written to VRAM
 
+    /* printf("Write to  %X: %02X\n", address, data); */
             return extra_cycles;
         }
     }
@@ -434,28 +454,21 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
             // During LCDC mode 2 and 3, no data can be written to OAM
 
+    /* printf("Write to  %X: %02X\n", address, data); */
             return extra_cycles;
         }
 
     }
-    else if (address >= 0xe000 && address < 0xfe00) {
 
-        // Writing to ECHO ram also writes in RAM
-
-        memory[address - 0x2000] = data;
-
-    }
-
+    assert(!(address >= 0xa000 && address < 0xc000));
 
     memory[address] = data;
 
+    /* printf("Write to  %X: %02X\n", address, data); */
     return extra_cycles;
 }
 
 void mmu_read8bit(unsigned char* destination, unsigned short address) {
-
-    /* printf("Read address %x\n", address); */
-
 
     if (address <= 0x9fff && address >= 0x8000) {
 
@@ -468,6 +481,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             // During LCDC mode 3, no data can be read from VRAM
 
             *destination = 0xFF; // Read undefined value which is usually 0xFF
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
             return;
         }
     }
@@ -482,14 +497,24 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             // During LCDC mode 2 and 3, no data can be read from OAM
 
             *destination = 0xFF; 
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
             return;
         }
+
+    }
+    else if (address >= 0xe000 && address < 0xfe00) {
+
+        // Reading from ECHO ram mirrors RAM
+        *destination = memory[address-0x2000];
 
     }
     else if (&memory[address] == joyp) { // $0xFF00
 
         
         *destination = *joyp; 
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
 
         return;
     }
@@ -498,6 +523,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         // When reading speed switching for GBC just return FF to avoid bugs? (i'm not doing GBC)
 
         *destination = 0xFF;
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
         return;
 
     } 
@@ -519,6 +546,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             /* printf("Accessing SPECIAL bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
 
             *destination = rom[address + current_rom_bank*0x4000]; // 16K banks
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
             return;
             
         }
@@ -527,6 +556,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
     else if (address >= 0x4000 && address < 0x8000) {
 
         // Reading from ROM Bank
+
+        /* printf("Reading from ROM RamEnable: %x Bank1: %x Bank2: %x ModeSelect: %x\n", ram_enable_register, rom_bank_number, ram_or_upperrom_bank_number, banking_mode_select); */
     
         // MBC1
         if (mbctype >= 1 && mbctype <= 3) {
@@ -540,6 +571,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
             /* printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
             *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
             return;
 
         }
@@ -547,7 +580,9 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
     }
     else if (address >= 0xA000 && address < 0xC000) {
 
-        printf("Reading from RAM Bank \n");
+        /* printf("Reading from SRAM\n"); */
+
+        /* printf("Reading from SRAM RamEnable: %x Bank1: %x Bank2: %x ModeSelect: %x\n", ram_enable_register, rom_bank_number, ram_or_upperrom_bank_number, banking_mode_select); */
 
         // Reading from RAM Bank
        
@@ -555,35 +590,36 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         // RAMG MUST be enabled, or else undefined is read 
         if (mbctype >= 1 && mbctype <= 3 && ram_enable_register) {
 
-            printf("RAM GETS PAST MBC CHECK\n");
+            /* printf("RAM GETS PAST MBC CHECK\n"); */
 
             // No RAM
             if (ramsizetype == 0) {
                 // No RAM returns undefined when reading (usually 0xFF)
                 // (return is done outside the if chain below)
-                printf("SRAM READ IS LOST IN FIRST IF CHECK\n");
+                /* printf("SRAM READ IS LOST IN FIRST IF CHECK\n"); */
             }
 
             // RAM size 2KB but is accessed outside that space
             else if (ramsizetype == 1 && address - 0xA000 >= 0x800) {
                 // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
                 // (return is done outside the if chain below)
-                printf("SRAM READ IS LOST IN SECOND IF CHECK\n");
+                /* printf("SRAM READ IS LOST IN SECOND IF CHECK\n"); */
             }
 
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
 
-                printf("Reading from SRAM address: %x\n", address - 0xa000);
+                /* printf("Reading from correct SRAM address: %x\n", address - 0xa000); */
 
                 *destination = ram_banks[address - 0xa000];
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
                 return;
             }
             // Big RAM and mode is 1 and if ram is enabled
             else if (ramsizetype >= 3) {
 
-                printf("SRAM READ IS NOT LOST IN LAST IF CHECK\n");
-                //  && ram_enable_register == 1 ?? 
+                /* printf("SRAM READ IS NOT LOST IN LAST IF CHECK\n"); */
 
                 if (banking_mode_select == 1) {
 
@@ -597,20 +633,28 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
                     *destination = ram_banks[(address - 0xa000)];
                 }
 
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
                 return;
 
             }
                 
         }
 
-        printf("Returning UNDEFINED VALUE FOR SRAM ACCESS\n");
+        /* printf("Returning UNDEFINED VALUE FOR SRAM ACCESS\n"); */
 
         // When no Cartridge RAM is present, or is disabled, return undefined
         *destination = 0xFF;
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
         return;
 
     }
 
+    assert(!(address >= 0xA000 && address < 0xC000));
+
     *destination = memory[address];
+    /* printf("Read from %X: %02X\n", address, *destination); */
+
 
 }
