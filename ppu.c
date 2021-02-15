@@ -489,7 +489,7 @@ static void render_frame() {
 
 
 
-static void render_sprites(unsigned char pallete_colors[4]) {
+static void render_sprites() {
 // the 4 is just helpful, the parameter is still (unsigned char*)
 
     /* 
@@ -541,6 +541,7 @@ static void render_sprites(unsigned char pallete_colors[4]) {
         unsigned char attributes; // byte 3
         mmu_read8bit(&attributes, + OAM_START + sprite_index + 3);
 
+
         // Is the scanline passing through this sprite 
         if (*lcd_ly < (ypos + sprite_ysize) && *lcd_ly >= ypos) {
 
@@ -575,6 +576,19 @@ static void render_sprites(unsigned char pallete_colors[4]) {
             mmu_read8bit(&hi_color_bit, line_in_tile_address);
             mmu_read8bit(&lo_color_bit, line_in_tile_address + 1);
 
+
+            unsigned char palette_colors[4];
+            unsigned char palette_register;
+
+            // Bit 4 of attributes specifies the palette
+            palette_register = (attributes & 0x10) ? *obj_palette_1_data : *obj_palette_0_data;
+
+            palette_colors[3] = palette_register >> 6;
+            palette_colors[2] = (palette_register >> 4) & 0x3;
+            palette_colors[1] = (palette_register >> 2) & 0x3;
+            palette_colors[0] = palette_register & 0x3;
+
+
             // Draw 8 horizontal pixels of sprite in scanline
             for (int horizontal_pixel=0; horizontal_pixel<8; horizontal_pixel++) {
 
@@ -590,11 +604,11 @@ static void render_sprites(unsigned char pallete_colors[4]) {
                 pixel_color <<= 1;
                 pixel_color |= (lo_color_bit >> colorbit) & 1;
 
-                // White is transparent for sprites
-                if (pallete_colors[pixel_color] == 0)
+                // Color index 0 is transparent for sprites
+                if (pixel_color == 0)
                     continue;
 
-                scanlinesbuffer[(*lcd_ly)*160 + xpos + horizontal_pixel] = (3-pallete_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black and 0 is black in rgb
+                scanlinesbuffer[(*lcd_ly)*160 + xpos + horizontal_pixel] = (3-palette_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black and 0 is black in rgb
 
             }
 
@@ -604,7 +618,7 @@ static void render_sprites(unsigned char pallete_colors[4]) {
 
 }
 
-static void render_tiles(unsigned char pallete_colors[4]) {
+static void render_tiles() {
 // the 4 is just helpful, the parameter is still (unsigned char*)
 
     /* From the pandocs:
@@ -694,6 +708,13 @@ static void render_tiles(unsigned char pallete_colors[4]) {
               3  Black
          */
 
+        unsigned char palette_colors[4];
+        palette_colors[3] = *lcd_bgp >> 6;
+        palette_colors[2] = (*lcd_bgp >> 4) & 0x3;
+        palette_colors[1] = (*lcd_bgp >> 2) & 0x3;
+        palette_colors[0] = *lcd_bgp & 0x3;
+
+
         // For each tile, add horizontal pixels until the end of the tile (or until the end of the screen),
         // Add those pixels to the scanlines buffer, and add up to the amount of pixels drawn
         unsigned char tile_pixels_drawn = 0;
@@ -706,7 +727,7 @@ static void render_tiles(unsigned char pallete_colors[4]) {
             pixel_color <<= 1;
             pixel_color |= (lo_color_bit >> (7 - hpixel_in_tile)) & 1;
 
-            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = (3-pallete_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black
+            scanlinesbuffer[(*lcd_ly)*160 + pixels_drawn + hpixel_in_tile] = (3-palette_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black
 
             tile_pixels_drawn++;
         }
@@ -724,17 +745,11 @@ static void render_tiles(unsigned char pallete_colors[4]) {
 
 static void draw_scanline() {
 
-    unsigned char pallete_colors[4];
-    pallete_colors[3] = *lcd_bgp >> 6;
-    pallete_colors[2] = (*lcd_bgp >> 4) & 0x3;
-    pallete_colors[1] = (*lcd_bgp >> 2) & 0x3;
-    pallete_colors[0] = *lcd_bgp & 0x3;
-
     if (*lcdc & 0x1)    // LCDC Bit 0 enables or disables Background (BG + Window) Display
-        render_tiles(pallete_colors); 
+        render_tiles(); 
 
     if (*lcdc & 0x2)    // LCDC Bit 1 enables or disables Sprites
-        render_sprites(pallete_colors);
+        render_sprites();
 }
 
 void ppu(int cycles) {

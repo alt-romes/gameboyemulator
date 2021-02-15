@@ -75,8 +75,8 @@ union address_space {
                                        * Bit 5-4 - Shade color for Color Number 2
                                        * etc...
                                        */
-                unsigned char obj_pallete_0_data[1]; // pallete 0 for sprites ($FF48)
-                unsigned char obj_pallete_1_data[1]; // pallete 1 for sprites ($FF49)
+                unsigned char obj_palette_0_data[1]; // pallete 0 for sprites ($FF48)
+                unsigned char obj_palette_1_data[1]; // pallete 1 for sprites ($FF49)
                 unsigned char lcd_windowy[1]; // window y location in relation to scroll (viewport) ($FF4A)
                 unsigned char lcd_windowx[1]; // window x location in relation to scroll (viewport) ($FF4B)
                 unsigned char padding__[0x4]; // $FF4C - $FF4F
@@ -115,6 +115,8 @@ unsigned char* tma = address_space.tma;
 unsigned char* tac = address_space.tac;
 unsigned char* dma = address_space.dma;
 unsigned char* joyp = address_space.joyp;
+unsigned char* obj_palette_0_data = address_space.obj_palette_0_data;
+unsigned char* obj_palette_1_data  = address_space.obj_palette_1_data;
 
 // Gameboy game read only memory (inserted cartridge)
 unsigned char rom[0x200000] = {0};
@@ -230,12 +232,12 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
                 if ((data & 0xF) == 0xA) {
 
-                    printf("Enabled RAM\n");
+                    /* printf("Enabled RAM\n"); */
                     ram_enable_register = 1;
                 }
                 else {
 
-                    printf("Disabled RAM\n");
+                    /* printf("Disabled RAM\n"); */
                     ram_enable_register = 0;
                 }
 
@@ -250,7 +252,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
                 // Write to rom_bank_number (5bit register from 0x1 - 0x1F)
 
-                printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data);
+                /* printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data); */
 
                 data &= 0x1f; // number of bits on the register is just 5
                 
@@ -269,14 +271,14 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 
                 rom_bank_number = data % 0x20 != 0 ? newdata : 1; // becomes 1 if the data written to the 5 bits of the register was 0
 
-                printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number);
+                /* printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number); */
             }
 
         }
         // Change ROM Bank upper part or RAM bank
         else if (address >= 0x4000 && address < 0x6000) {
 
-            printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data);
+            /* printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data); */
 
             // MBC1
             if (mbctype >= 1 && mbctype <= 3) {
