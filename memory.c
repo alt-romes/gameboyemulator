@@ -252,21 +252,21 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
                 // Write to rom_bank_number (5bit register from 0x1 - 0x1F)
 
-                printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data);
+                /* printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data); */
 
                 data &= 0x1f; // number of bits on the register is just 5
 
                 // the 5 bit BANK1 register doesn't allow value 0 -> write 1 instead
                 rom_bank_number = data ? data : 1;
 
-                printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number);
+                /* printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number); */
             }
 
         }
         // Change ROM Bank upper part or RAM bank
         else if (address >= 0x4000 && address < 0x6000) {
 
-            printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data);
+            /* printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data); */
 
             // MBC1
             if (mbctype >= 1 && mbctype <= 3) {
@@ -303,19 +303,54 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
     }
     else if (address >= 0xa000 && address < 0xc000) {
 
-        // Writing to RAM Bank address
+        // Writing to RAM Bank address - only if it exists and is enabled
 
-        if (ramsizetype >= 3 && ram_enable_register == 1 && banking_mode_select == 1) {
+        // MBC1 and Enabled RAMG
+        if (mbctype >= 1 && mbctype <= 3 && ram_enable_register) {
 
-            unsigned char current_ram_bank = ram_or_upperrom_bank_number;
-            ram_banks[(address - 0xa00) + current_ram_bank*0x2000] = data;
+            // No RAM
+            if (ramsizetype == 0) {
+                // No RAM returns undefined when reading (usually 0xFF)
+                // (return is done outside the if chain below)
+            }
 
-            return extra_cycles;
+            // RAM size 2KB but is accessed outside that space
+            else if (ramsizetype == 1 && address - 0xA000 >= 0x2000) {
+                // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
+                // (return is done outside the if chain below)
+            }
+
+            // RAM size is 2KB or 8KB within boundaries
+            else if (ramsizetype == 1 || ramsizetype == 2) {
+
+                ram_banks[address - 0xa00] = data;
+                return extra_cycles;
+            }
+            // Big RAM and mode is 1 and if ram is enabled
+            else if (ramsizetype >= 3) {
+
+                //  && ram_enable_register == 1 ?? 
+
+                if (banking_mode_select == 1) {
+
+                    // banking select is mode 1 - address with rambank selector
+                    unsigned char current_ram_bank = ram_or_upperrom_bank_number;
+                    ram_banks[(address - 0xa00) + current_ram_bank*0x2000] = data;
+                }
+                else {
+
+                    // when banking select mode is 0 - access first bank
+                    ram_banks[(address - 0xa00)] = data;
+                }
+                
+                return extra_cycles;
+
+            }
+
         }
 
-        // If there's no ram or if it's disabled don't allow writing
-        else if (ramsizetype == 0 || ram_enable_register == 0)
-            return extra_cycles;
+        // Extra RAM couldn't be written
+        return extra_cycles;
 
     }
 
@@ -508,38 +543,53 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         // Reading from RAM Bank
        
         // MBC1 with RAM and more than 1 8K RAM Bank
-        if (mbctype >= 1 && mbctype <= 3) {
+        // RAMG MUST be enabled, or else undefined is read 
+        if (mbctype >= 1 && mbctype <= 3 && ram_enable_register) {
 
             // No RAM
             if (ramsizetype == 0) {
                 // No RAM returns undefined when reading (usually 0xFF)
-                *destination = 0xFF;
-                return;
+                // (return is done outside the if chain below)
             }
 
-            // RAM size 2KB
+            // RAM size 2KB but is accessed outside that space
             else if (ramsizetype == 1 && address - 0xA000 >= 0x2000) {
-
                 // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
-                *destination = 0xFF;
-                return;
+                // (return is done outside the if chain below)
             }
 
-            // When RAM is within 2KB or is 8KB, access space normally as if it was the 1 bank dedicated
+            // RAM size is 2KB or 8KB within boundaries
+            else if (ramsizetype == 1 || ramsizetype == 2) {
 
+                *destination = ram_banks[address - 0xa00];
+                return;
+            }
             // Big RAM and mode is 1 and if ram is enabled
-            else if (ramsizetype >= 3 && banking_mode_select == 1 && ram_enable_register == 1) {
+            else if (ramsizetype >= 3) {
 
-                // multiple RAM Banks - address with rambank selector 
+                //  && ram_enable_register == 1 ?? 
 
-                unsigned char current_ram_bank = ram_or_upperrom_bank_number;
-                *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
+                if (banking_mode_select == 1) {
+
+                    // banking select is mode 1 - address with rambank selector
+                    unsigned char current_ram_bank = ram_or_upperrom_bank_number;
+                    *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
+                }
+                else {
+
+                    // when banking select mode is 0 - access first bank
+                    *destination = ram_banks[(address - 0xa00)];
+                }
+
                 return;
 
             }
                 
-
         }
+
+        // When no Cartridge RAM is present, or is disabled, return undefined
+        *destination = 0xFF;
+        return;
 
     }
 
