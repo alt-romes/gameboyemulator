@@ -14,3 +14,17 @@ The emulator passes all `cpu_instr` blarggs tests, and passes all MBC1 `rom_512k
 ## Running
 
 To specify a ROM, run i.e. `./emulator -r prince-of-persia.gb`. By default `./emulator` will search for a file named `tetris-jp.gb`
+
+## Controls
+
+The gameboy has 8 buttons:
+
+Left <kbd>A</kbd>
+Up <kbd>W</kbd>
+Down <kbd>S</kbd>
+Right <kbd>D</kbd>
+
+Button A <kbd>J</kbd>
+Button B <kbd>K</kbd>
+Start <kbd>N</kbd>
+Select <kbd>M</kbd>
