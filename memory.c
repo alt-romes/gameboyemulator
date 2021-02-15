@@ -252,18 +252,22 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
                 printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data);
 
-                if (romsizetype == 0) // no banking - bank number should be always 1
-                    data = 1;
-                else if (romsizetype == 1) // 4 banks can be addressed with 2 bits
-                    data &= 3; // 0..0011
-                else if (romsizetype == 2) // 8 banks can be addressed with 3 bits
-                    data &= 7; // 0..0111
-                else if (romsizetype == 3) // 16 banks
-                    data &= 0xf; // 0..1111
-                else
-                    data &= 0x1f; // 0001 1111
+                data &= 0x1f; // number of bits on the register is just 5
+                
+                unsigned char newdata = data;
 
-                rom_bank_number = data ? data : 1; // can't be 0
+                if (romsizetype == 0) // no banking - bank number should be always 1
+                    newdata = 1;
+                else if (romsizetype == 1) // 4 banks can be addressed with 2 bits
+                    newdata &= 3; // 0..0011
+                else if (romsizetype == 2) // 8 banks can be addressed with 3 bits
+                    newdata &= 7; // 0..0111
+                else if (romsizetype == 3) // 16 banks
+                    newdata &= 0xf; // 0..1111
+                else
+                    newdata &= 0x1f; // 0001 1111
+                
+                rom_bank_number = data % 0x20 != 0 ? newdata : 1; // becomes 1 if the data written to the 5 bits of the register was 0
 
                 printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number);
             }
@@ -485,8 +489,6 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             
         }
 
-        printf("Accessing bank 0 normally\n");
-
     }
     else if (address >= 0x4000 && address < 0x8000) {
 
@@ -499,18 +501,16 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             unsigned char current_rom_bank = rom_bank_number | (ram_or_upperrom_bank_number << 5);
 
             // Can't be 00h 20h 40h or 60h, automatically access next bank
-            if(current_rom_bank % 20 == 0)
-                current_rom_bank++;
+            /* if(current_rom_bank % 20 == 0) */
+            /*     current_rom_bank++; */
 
 
             // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
-            printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
+            /* printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
             *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
             return;
 
         }
-
-        printf("Accessing bank 1 normally\n");
 
     }
     else if (address >= 0xA000 && address < 0xC000) {
