@@ -566,8 +566,9 @@ static void render_sprites() {
             unsigned char sprite_line = (*lcd_ly - ypos)*2;
 
             // read the y axis backwards (if we were reading line 1 we read line 8 instead)
-            /* if (attributes & 0x40) // Y Flip */
-            /*     sprite_line = (sprite_line-ypos) * -1; */
+            // TODO: I think this y flip is incorrect
+            if (attributes & 0x40) // Y Flip
+                sprite_line = (sprite_line-ypos) * -1;
 
             // Address for line in the tile
             unsigned short line_in_tile_address = tileaddress + sprite_line;
@@ -595,8 +596,8 @@ static void render_sprites() {
                 int colorbit = 7 - horizontal_pixel;
                 
                 // Read the color bits the other way around to flip the sprite
-                /* if (attributes & 0x20) // X Flip */
-                /*     colorbit = (colorbit - 7) * -1; // if it was 7, it'll read 0, if it was 6 -> 1, etc... */
+                if (attributes & 0x20) // X Flip
+                    colorbit = (colorbit - 7) * -1; // if it was 7, it'll read 0, if it was 6 -> 1, etc...
 
                 // To get color join colorbit from byte 1 on the left and byte 2 to the right
                 unsigned char pixel_color = 0;
