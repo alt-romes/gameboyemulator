@@ -27,6 +27,8 @@
 
 
 
+#include <assert.h>
+
 
 
 /*---- Registers & Control ----------------------------------------*/
@@ -100,8 +102,6 @@ static unsigned char interrupt_master_enable = 0;   /*Interrupt Master Enable Fl
 static unsigned char halted = 0;    /* If halted = 1, CPU is idle and waiting for interrupt request  */
 
 static unsigned char stopped = 0;   /* If stopped = 1, CPU is stopped. */
-
-
 
 
 
@@ -191,8 +191,11 @@ static void debug() {
 
 static void load8bit(unsigned char * destination, unsigned char * source) {
 
+    assert(!(source >= &memory[0] && source < &memory[0x10000-1]));
+    assert(!(destination >= &memory[0] && destination < &memory[0x10000-1]));
 
     *destination = *source;
+
 }
 
 static void load8bit_operand(unsigned char * destination, void* _unused) {

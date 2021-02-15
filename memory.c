@@ -232,12 +232,12 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // RAM Banking will be enabled when the lower nibble is 0xA, and disabled when the lower nibble is 0
                 if ((data & 0xF) == 0xA) {
 
-                    /* printf("Enabled RAM\n"); */
+                    printf("Enabled RAM\n");
                     ram_enable_register = 1;
                 }
                 else {
 
-                    /* printf("Disabled RAM\n"); */
+                    printf("Disabled RAM\n");
                     ram_enable_register = 0;
                 }
 
@@ -315,7 +315,7 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
             }
 
             // RAM size 2KB but is accessed outside that space
-            else if (ramsizetype == 1 && address - 0xA000 >= 0x2000) {
+            else if (ramsizetype == 1 && address - 0xA000 >= 0x800) {
                 // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
                 // (return is done outside the if chain below)
             }
@@ -323,25 +323,33 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
 
-                ram_banks[address - 0xa00] = data;
+                printf("Writing to SRAM address %x DATA %x\n", address - 0xa000, data);
+                ram_banks[address - 0xa000] = data;
+
+                /* // Disable SRAM after writing to it */
+                /* printf("Disabled SRAM\n"); */
+                /* ram_enable_register = 0; */
+
                 return extra_cycles;
             }
             // Big RAM and mode is 1 and if ram is enabled
             else if (ramsizetype >= 3) {
 
-                //  && ram_enable_register == 1 ?? 
-
                 if (banking_mode_select == 1) {
 
                     // banking select is mode 1 - address with rambank selector
                     unsigned char current_ram_bank = ram_or_upperrom_bank_number;
-                    ram_banks[(address - 0xa00) + current_ram_bank*0x2000] = data;
+                    ram_banks[(address - 0xa000) + current_ram_bank*0x2000] = data;
                 }
                 else {
 
                     // when banking select mode is 0 - access first bank
-                    ram_banks[(address - 0xa00)] = data;
+                    ram_banks[(address - 0xa000)] = data;
                 }
+
+                /* // Disable SRAM after writing to it */
+                /* printf("Disabled SRAM\n"); */
+                /* ram_enable_register = 0; */
                 
                 return extra_cycles;
 
@@ -526,12 +534,11 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             // TODO: Multicarts MBC1m use one less bit in rom bank number and shift by 4 only
             unsigned char max_banks_mask = ~(-1 << (romsizetype+1));
 
-            printf("MASK %x\n", max_banks_mask);
             unsigned char current_rom_bank = ((rom_bank_number ? rom_bank_number : 1) | (ram_or_upperrom_bank_number << 5)) & max_banks_mask;
 
 
             // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
-            printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
+            /* printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
             *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
             return;
 
@@ -540,45 +547,54 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
     }
     else if (address >= 0xA000 && address < 0xC000) {
 
+        printf("Reading from RAM Bank \n");
+
         // Reading from RAM Bank
        
         // MBC1 with RAM and more than 1 8K RAM Bank
         // RAMG MUST be enabled, or else undefined is read 
         if (mbctype >= 1 && mbctype <= 3 && ram_enable_register) {
 
+            printf("RAM GETS PAST MBC CHECK\n");
+
             // No RAM
             if (ramsizetype == 0) {
                 // No RAM returns undefined when reading (usually 0xFF)
                 // (return is done outside the if chain below)
+                printf("SRAM READ IS LOST IN FIRST IF CHECK\n");
             }
 
             // RAM size 2KB but is accessed outside that space
-            else if (ramsizetype == 1 && address - 0xA000 >= 0x2000) {
+            else if (ramsizetype == 1 && address - 0xA000 >= 0x800) {
                 // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
                 // (return is done outside the if chain below)
+                printf("SRAM READ IS LOST IN SECOND IF CHECK\n");
             }
 
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
 
-                *destination = ram_banks[address - 0xa00];
+                printf("Reading from SRAM address: %x\n", address - 0xa000);
+
+                *destination = ram_banks[address - 0xa000];
                 return;
             }
             // Big RAM and mode is 1 and if ram is enabled
             else if (ramsizetype >= 3) {
 
+                printf("SRAM READ IS NOT LOST IN LAST IF CHECK\n");
                 //  && ram_enable_register == 1 ?? 
 
                 if (banking_mode_select == 1) {
 
                     // banking select is mode 1 - address with rambank selector
                     unsigned char current_ram_bank = ram_or_upperrom_bank_number;
-                    *destination = ram_banks[(address - 0xa00) + current_ram_bank*0x2000];
+                    *destination = ram_banks[(address - 0xa000) + current_ram_bank*0x2000];
                 }
                 else {
 
                     // when banking select mode is 0 - access first bank
-                    *destination = ram_banks[(address - 0xa00)];
+                    *destination = ram_banks[(address - 0xa000)];
                 }
 
                 return;
@@ -586,6 +602,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
             }
                 
         }
+
+        printf("Returning UNDEFINED VALUE FOR SRAM ACCESS\n");
 
         // When no Cartridge RAM is present, or is disabled, return undefined
         *destination = 0xFF;
