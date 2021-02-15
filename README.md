@@ -33,10 +33,10 @@ Select | <kbd>M</kbd>
 
 ## Screenshots
 
-[cpu_instr](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/cpu_instr.png?raw=true)
+![cpu_instr](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/cpu_instr.png?raw=true)
 
-[prince of persia](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/prince_of_persia.png?raw=true)
+![prince of persia](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/prince_of_persia.png?raw=true)
 
-[tetris opening screen](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris1.png?raw=true)
-[tetris mid game](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris2.png?raw=true)
-[tetris game over](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris3.png?raw=true)
+![tetris opening screen](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris1.png?raw=true)
+![tetris mid game](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris2.png?raw=true)
+![tetris game over](https://github.com/alt-romes/gameboyemulator/blob/master/screenshots/tetris3.png?raw=true)
