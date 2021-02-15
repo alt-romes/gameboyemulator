@@ -252,33 +252,21 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
 
                 // Write to rom_bank_number (5bit register from 0x1 - 0x1F)
 
-                /* printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data); */
+                printf("Writing to ROM BANK LOWER BITS (%x) with data %x\n", rom_bank_number, data);
 
                 data &= 0x1f; // number of bits on the register is just 5
-                
-                unsigned char newdata = data;
 
-                if (romsizetype == 0) // no banking - bank number should be always 1
-                    newdata = 1;
-                else if (romsizetype == 1) // 4 banks can be addressed with 2 bits
-                    newdata &= 3; // 0..0011
-                else if (romsizetype == 2) // 8 banks can be addressed with 3 bits
-                    newdata &= 7; // 0..0111
-                else if (romsizetype == 3) // 16 banks
-                    newdata &= 0xf; // 0..1111
-                else
-                    newdata &= 0x1f; // 0001 1111
-                
-                rom_bank_number = data % 0x20 != 0 ? newdata : 1; // becomes 1 if the data written to the 5 bits of the register was 0
+                // the 5 bit BANK1 register doesn't allow value 0 -> write 1 instead
+                rom_bank_number = data ? data : 1;
 
-                /* printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number); */
+                printf("ROM BANK LOWER BITS is now %x\n", rom_bank_number);
             }
 
         }
         // Change ROM Bank upper part or RAM bank
         else if (address >= 0x4000 && address < 0x6000) {
 
-            /* printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data); */
+            printf("Writing to ROM BANK UPPER BITS (%x) with data %x\n", ram_or_upperrom_bank_number, data);
 
             // MBC1
             if (mbctype >= 1 && mbctype <= 3) {
@@ -478,16 +466,17 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         if (mbctype >= 1 && mbctype <= 3 && banking_mode_select == 1 && romsizetype > 4) {
 
             // TODO: Multicarts MBC1m use one less bit in rom bank number and shift by 4 only
-            unsigned char current_rom_bank = rom_bank_number | (ram_or_upperrom_bank_number << 5);
 
-            if (current_rom_bank % 0x20 == 0) {
+            // If 0000-3fff is accessed in mode 1, bank is upper bank shifted by 5
+            // To Access bank 00, 20h, 40h or 60h
 
-                // Access bank 00, 20h, 40h or 60h
+            unsigned char max_banks_mask = ~(-1 << (romsizetype+1));
+            unsigned char current_rom_bank = (ram_or_upperrom_bank_number << 5) & max_banks_mask;
 
-                printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
-                *destination = rom[address + current_rom_bank*0x4000]; // 16K banks
-                return;
-            }
+            /* printf("Accessing SPECIAL bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
+
+            *destination = rom[address + current_rom_bank*0x4000]; // 16K banks
+            return;
             
         }
 
@@ -500,15 +489,14 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
         if (mbctype >= 1 && mbctype <= 3) {
 
             // TODO: Multicarts MBC1m use one less bit in rom bank number and shift by 4 only
-            unsigned char current_rom_bank = rom_bank_number | (ram_or_upperrom_bank_number << 5);
+            unsigned char max_banks_mask = ~(-1 << (romsizetype+1));
 
-            // Can't be 00h 20h 40h or 60h, automatically access next bank
-            /* if(current_rom_bank % 20 == 0) */
-            /*     current_rom_bank++; */
+            printf("MASK %x\n", max_banks_mask);
+            unsigned char current_rom_bank = ((rom_bank_number ? rom_bank_number : 1) | (ram_or_upperrom_bank_number << 5)) & max_banks_mask;
 
 
             // Since rom_bank is always 1 or more, we remove 0x4000 once to get the correct offset
-            /* printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000); */
+            printf("Accessing bank %x at %x\n", current_rom_bank, address + current_rom_bank*0x4000);
             *destination = rom[(address - 0x4000) + current_rom_bank*0x4000];
             return;
 
