@@ -2,7 +2,7 @@
 
 This emulator is capable of running `tetris`, and other MBC1 games with multiple ROM banks but without RAM banks, like `prince of persia`.
 
-The emulator passes all `cpu_instr` blarggs tests, and passes all MBC1 `rom_512kb` through `rom_16Mb` - currently it does not pass `ram_64kb` and i cannot fix this bug.
+The emulator passes all `cpu_instr` blarggs tests, and passes all MBC1 `mooneye-gb rom ram and bit` tests
 
 It's made completely in C. Most parts are fine except for the `memory.c` which due to lack of understanding when starting out has duplicate address spaces for some parts and mimics the Nintendo console in a way that could be much simpler and much more intuitive.
 
