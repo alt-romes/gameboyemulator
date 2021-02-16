@@ -22,7 +22,7 @@
 #include <SDL.h>
 #endif
 
-#define SCREEN_MULTIPLIER 4
+#define SCREEN_MULTIPLIER 2
 
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
@@ -669,7 +669,7 @@ static void render_tiles() {
         unsigned char xPos = pixels_drawn + *lcd_scx;        // X pos in 256x256 background
         unsigned char tile_col = (char) (xPos / 8);   // 8 pixels per tile
 
-        short tile_id;
+        unsigned char tile_id;
 
         // Get the tile id from tilemap + offset,
         // Then get the data for that tile id
@@ -677,12 +677,12 @@ static void render_tiles() {
         unsigned short tile_address = tilemap_base_address+(tile_row*32)+tile_col;   // tile ids are organized from tilemap_base as 32 rows of 32 bytes
         unsigned short tile_data_location = tile_data_base_address;
 
+        mmu_read8bit(&tile_id, tile_address);
+
         if ((*lcdc >> 4) & 1) {                         // if tile identity is unsigned
-            tile_id = (unsigned char) memory[tile_address];
-            tile_data_location += (tile_id*16);         // each tile is 16 bytes long, start at 0
+            tile_data_location += (((unsigned char) tile_id)*16);         // each tile is 16 bytes long, start at 0
         } else {
-            tile_id = (char) memory[tile_address];
-            tile_data_location += ((tile_id+128) * 16); // each tile is 16 bytes, start at offset 128 (signed)
+            tile_data_location += ((((char) tile_id)+128) * 16); // each tile is 16 bytes, start at offset 128 (signed)
         }
 
 
@@ -692,8 +692,9 @@ static void render_tiles() {
 
         unsigned char line_byte_in_tile = (yPos % 8) * 2;   // each tile has 8 vertical lines, each line uses 2 bytes
 
-        unsigned char hi_color_bit = memory[tile_data_location+line_byte_in_tile];
-        unsigned char lo_color_bit = memory[tile_data_location+line_byte_in_tile+1];
+        unsigned char hi_color_bit, lo_color_bit;
+        mmu_read8bit(&hi_color_bit, tile_data_location+line_byte_in_tile);
+        mmu_read8bit(&lo_color_bit, tile_data_location+line_byte_in_tile+1);
 
 
         /*  Background Pallete Register

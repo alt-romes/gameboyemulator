@@ -135,23 +135,32 @@ static int extra_instruction_cycles = 0;
 /*---- CPU Utils ----------------*/
 
 static unsigned char read8bit_operand() {
-    if (debugger)
-        printf("8-bit read: %d\n", memory[registers.pc]);
 
-    return memory[registers.pc++];
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.pc++);
+
+    if (debugger)
+        printf("8-bit read: %d\n", mem_read);
+
+    return mem_read;
 }
 
 static char read8bit_signed_operand() {
-    if (debugger)
-        printf("signed 8-bit read: %d\n", (char) memory[registers.pc]);
 
-    return (char) memory[registers.pc++];
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.pc++);
+
+    if (debugger)
+        printf("signed 8-bit read: %d\n", (char) mem_read);
+
+    return (char) mem_read;
 }
 
 static unsigned short read16bit_operand() {
 
-    unsigned char operand_low = memory[registers.pc++];
-    unsigned char operand_high = memory[registers.pc++];
+    unsigned char operand_low, operand_high;
+    mmu_read8bit(&operand_low, registers.pc++);
+    mmu_read8bit(&operand_high, registers.pc++);
 
     unsigned short operand = 0 | operand_high;
     operand = (operand << 8) | operand_low;
@@ -306,14 +315,14 @@ static void load16bit_operand(unsigned short * destination) {
 
 static void push_op(unsigned char * hi_reg, unsigned char * lo_reg) {
 
-    memory[--registers.sp] = *hi_reg;
-    memory[--registers.sp] = *lo_reg;
+    mmu_write8bit(--registers.sp, *hi_reg);
+    mmu_write8bit(--registers.sp, *lo_reg);
 }
 
 static void pop_op(unsigned char* hi_reg, unsigned char* lo_reg) {
 
-    *lo_reg = memory[registers.sp++];
-    *hi_reg = memory[registers.sp++];
+    mmu_read8bit(lo_reg, registers.sp++);
+    mmu_read8bit(hi_reg, registers.sp++);
 
     if (lo_reg == &registers.f)
         registers.f &= 0xf0;
@@ -378,7 +387,9 @@ static void add8bit(unsigned char* s) {
 
 static void add8bit_from_mem() {
 
-    add8bit(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    add8bit(&mem_read);
 }
 
 static void add8bit_operand() {
@@ -405,7 +416,9 @@ static void sub(unsigned char* reg) {
 
 static void sub_from_mem() {
 
-    sub(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    sub(&mem_read);
 }
 
 static void sub_operand() {
@@ -460,7 +473,9 @@ static void sbc(unsigned char* reg) {
 
 static void sbc_from_mem() {
 
-    sbc(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    sbc(&mem_read);
 }
 
 static void sbc_operand() {
@@ -471,7 +486,9 @@ static void sbc_operand() {
 
 static void adc_from_mem(unsigned short* reg_with_pointer) {
 
-    adc(&memory[*reg_with_pointer]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg_with_pointer);
+    adc(&mem_read);
 }
 
 static void adc_operand() {
@@ -494,7 +511,9 @@ static void xor_reg(unsigned char* reg) {
 
 static void xor_reg_from_mem(unsigned short * reg_with_pointer) {
 
-    xor_reg(&memory[*reg_with_pointer]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg_with_pointer);
+    xor_reg(&mem_read);
 }
 
 static void xor_operand() {
@@ -525,7 +544,9 @@ static void and_operand (){
 
 static void and_from_mem(){
 
-    and_reg(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    and_reg(&mem_read);
 }
 
 static void or_reg(unsigned char* reg) {
@@ -542,7 +563,9 @@ static void or_reg(unsigned char* reg) {
 
 static void or_from_mem(){
 
-    or_reg(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    or_reg(&mem_read);
 }
 
 static void or_operand (){
@@ -568,7 +591,14 @@ static void inc8bit(unsigned char* reg) {
 
 static void inc8bit_from_mem() {
 
-    inc8bit(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+
+    // increment variable to set the flags
+    inc8bit(&mem_read);
+
+    mmu_write8bit(registers.hl, mem_read);
+
 }
 
 static void dec8bit(unsigned char* reg) {
@@ -587,7 +617,13 @@ static void dec8bit(unsigned char* reg) {
 
 static void dec8bit_from_mem(){
 
-    dec8bit(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+
+    // decrement variable to set the flags
+    dec8bit(&mem_read);
+
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void cp_op(unsigned char* reg) {
@@ -620,7 +656,10 @@ static void cp_operand() {
 }
 
 static void cp_mem(unsigned short* reg_w_pointer) {
-    cp_op(&memory[*reg_w_pointer]);
+
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg_w_pointer);
+    cp_op(&mem_read);
 }
 
 
@@ -928,42 +967,70 @@ static void sra_op(unsigned char* reg) {
 
 static void rlc_from_mem() {
 
-    rlc_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    
+    // Rotate variable to set flags and value
+    rlc_op(&mem_read);
+
+    mmu_write8bit(registers.hl, mem_read);
+
 }
 
 static void rrc_from_mem() {
 
-    rrc_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    rrc_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void rl_from_mem() {
 
-    rl_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    rl_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void rr_from_mem() {
 
-    rr_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    rr_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void sla_from_mem() {
 
-    sla_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    sla_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void sra_from_mem() {
 
-    sra_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    sra_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void swap_from_mem() {
 
-    swap(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    swap(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void srl_from_mem() {
 
-    srl_op(&memory[registers.hl]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, registers.hl);
+    srl_op(&mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void daa_op(){
@@ -1010,7 +1077,9 @@ static void bit_op(void* n, unsigned char * reg) {
 
 static void bit_op_from_mem(void* n, unsigned short * reg) {
 
-    bit_op(n, &memory[*reg]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg);
+    bit_op(n, &mem_read);
 }
 
 static void set_op(void* n, unsigned char* reg) {
@@ -1022,7 +1091,10 @@ static void set_op(void* n, unsigned char* reg) {
 
 static void set_op_from_mem(void* n , unsigned short* reg_with_pointer) {
 
-    set_op(n, &memory[*reg_with_pointer]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg_with_pointer);
+    set_op(n, &mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 static void res_op(void* n, unsigned char* reg) {
@@ -1034,7 +1106,10 @@ static void res_op(void* n, unsigned char* reg) {
 
 static void res_from_mem(void* n , unsigned short* reg_with_pointer) {
 
-    res_op(n, &memory[*reg_with_pointer]);
+    unsigned char mem_read;
+    mmu_read8bit(&mem_read, *reg_with_pointer);
+    res_op(n, &mem_read);
+    mmu_write8bit(registers.hl, mem_read);
 }
 
 /*---- Jumps --------------------*/
@@ -1097,8 +1172,8 @@ static void jump_condition_add_operand(void* flag, void* jump_cond) {
 
 static void call(unsigned short address) {
 
-    memory[--registers.sp] = registers.pchi;
-    memory[--registers.sp] = registers.pclo;
+    mmu_write8bit(--registers.sp, registers.pchi);
+    mmu_write8bit(--registers.sp, registers.pclo);
 
     registers.pc = address;
 
@@ -1135,9 +1210,10 @@ static void call_condition(void* flag, void* call_cond) {
 /*---- Returns ------------------*/
 
 static void ret_op() {
+    
+    mmu_read8bit(&registers.pclo, registers.sp++);
+    mmu_read8bit(&registers.pchi, registers.sp++);
 
-    registers.pclo = memory[registers.sp++];
-    registers.pchi = memory[registers.sp++];
 }
 
 // jump_cond is 0 if condition is NOT FLAG, jump_cond is 1 if condition is FLAG
@@ -1817,7 +1893,10 @@ static int execute() {
 
     /* (*lcd_ly) = 0x90; // Stubbed for testing purposes; */
 
-    unsigned char opcode = memory[registers.pc++];
+    // Use mmu read instead
+    /* unsigned char opcode = memory[registers.pc++]; */
+    unsigned char opcode;
+    mmu_read8bit(&opcode, registers.pc++);
 
     if (opcode == 0xe4)
         printf("UNKNOWN CODE IN PC: %x\n", registers.pc-1);
@@ -1827,7 +1906,10 @@ static int execute() {
     struct instruction instruction;
 
     if (opcode == 0xcb) {       /* if op is CB prefix, execute next op from the CB instruction set */
-        opcode = memory[registers.pc++];
+
+        // Use mmu read instead
+        /* opcode = memory[registers.pc++]; */
+        mmu_read8bit(&opcode, registers.pc++);
         instruction = instructions_cb[opcode];
         time = instructions_cb_ticks[opcode];
     }

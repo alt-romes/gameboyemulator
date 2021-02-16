@@ -333,11 +333,8 @@ int mmu_write8bit(unsigned short address, unsigned char data) {
                 // (return is done outside the if chain below)
             }
 
-            // RAM size 2KB but is accessed outside that space
-            else if (ramsizetype == 1 && address - 0xA000 >= 0x800) {
-                // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
-                // (return is done outside the if chain below)
-            }
+            // RAM size 2KB might be accessed outside that space, but
+            // accessing outside the 2K of RAM is undefined behaviour, so we just let it
 
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
@@ -599,12 +596,8 @@ void mmu_read8bit(unsigned char* destination, unsigned short address) {
                 /* printf("SRAM READ IS LOST IN FIRST IF CHECK\n"); */
             }
 
-            // RAM size 2KB but is accessed outside that space
-            else if (ramsizetype == 1 && address - 0xA000 >= 0x800) {
-                // accessing outside the 2K of RAM is undefined when reading (usually 0xFF)
-                // (return is done outside the if chain below)
-                /* printf("SRAM READ IS LOST IN SECOND IF CHECK\n"); */
-            }
+            // RAM size 2KB might be accessed outside that space, but
+            // accessing outside the 2K of RAM is undefined behaviour, so we just let it
 
             // RAM size is 2KB or 8KB within boundaries
             else if (ramsizetype == 1 || ramsizetype == 2) {
