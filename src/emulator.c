@@ -3,13 +3,14 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "emulator.h"
+#include "memory.h"
+#include "cpu.h"
+#include "ppu.h"
+#include "timer.h"
+
 unsigned long debugger = 0;
 
-// I should really do proper header files i'm being too lazy
-#include "memory.c"
-#include "cpu.c"
-#include "ppu.c"
-#include "timer.c"
 
 const int FRAME_MAX_CYCLES = 69905; /*
                                      *      Gameboy's CPU runs at 4.194304MHz
@@ -87,7 +88,7 @@ void update() {
             int c = getchar();
             switch(c) {
             case 'n':
-                debugger_offset = 10;\
+                debugger_offset = 10;
                 break;
             case 'b':
                 debugger_offset = 100;
@@ -125,6 +126,9 @@ static void boot() {
     // Set keys as "unpressed" when the nintendo starts
     *joyp |= 0xF;
 
+    // Set initial DIV value
+    *tdiv = 0;
+
     printf("Booting...\n");
 
 }
@@ -151,7 +155,7 @@ void emulate() {
 
 int main(int argc, char *argv[]) {
 
-    char* romstring = "tetris-jp.gb";
+    char* romstring = "roms/tetris-jp.gb";
 
     char* testing = NULL;
     if (argc > 1 && argv[1][0]=='-' && argv[1][1]=='d') {

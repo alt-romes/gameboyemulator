@@ -1,3 +1,8 @@
+
+#include "timer.h"
+#include "memory.h"
+#include "cpu.h"
+
 static const int TOTAL_DIVIDER_CYCLES = 256;
 
 static int divider_cycles_left = TOTAL_DIVIDER_CYCLES;

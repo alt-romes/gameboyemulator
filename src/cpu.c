@@ -1,99 +1,10 @@
-/*
- *  Gameboy Emulator: CPU
- *
- *
- *  Resources:
- *
- *  > Everything ~you wanted to know
- *  http://bgb.bircd.org/pandocs.htm
- *  > Pandocs active version
- *  https://gbdev.io/pandocs/
- *
- *  > Instruction Set + Registers
- *  https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
- *
- *  > More Opcodes
- *  http://gameboy.mongenel.com/dmg/opcodes.html
- *
- *  > Bootstrap ROM
- *  https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
- *
- *
- *  Notes:
- *
- *  Load memory.c before loading this file (cpu.c)
- *
- */
-
-
-
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-
-
-/*---- Registers & Control ----------------------------------------*/
-
-
-/*
- *  The Gameboy's CPU has 8 registers with size 8bits each
- *  They can be combined to form 16bit registers
- *
- *      16bit | hi | lo | name/function
- *      af    | a  | f  | accumulator & flags
- *      bc    | b  | c  |
- *      de    | d  | e  |
- *      hl    | h  | l  |
- *      sp    | -  | -  | stack pointer
- *      pc    | -  | -  | program counter
- *
- *  f is a special register called "flag register"
- *
- *      bit | name | explanation
- *      7   | z    |  zero flag
- *      6   | n    |  add/sub flag
- *      5   | h    |  half carry flag
- *      4   | cy   |  carry flag
- *      3-0 | -    |  unused (value=0)
- *
- */
-struct registers {
-    union {
-        struct {
-            unsigned char f;
-            unsigned char a;
-        };
-        unsigned short af;
-    };
-    union {
-        struct {
-            unsigned char c;
-            unsigned char b;
-        };
-        unsigned short bc;
-    };
-    union {
-        struct {
-            unsigned char e;
-            unsigned char d;
-        };
-        unsigned short de;
-    };
-    union {
-        struct {
-            unsigned char l;
-            unsigned char h;
-        };
-        unsigned short hl;
-    };
-    unsigned short sp;
-    union {
-        struct {
-            unsigned char pclo;
-            unsigned char pchi;
-        };
-        unsigned short pc;
-    };
-};
+#include "cpu.h"
+#include "emulator.h"
+#include "memory.h"
 
 struct registers registers = {{{0}}};
 
@@ -107,11 +18,6 @@ static unsigned char stopped = 0;   /* If stopped = 1, CPU is stopped. */
 
 /*---- Flags ------------------------------------------------------*/
 
-
-#define FLAG_Z ((unsigned char) 128) // 1000 0000
-#define FLAG_N ((unsigned char) 64) // 0100 0000
-#define FLAG_H ((unsigned char) 32) // 0010 0000
-#define FLAG_CY ((unsigned char) 16) // 0001 0000
 
 static void set_flag(unsigned char flag) {
 
@@ -1242,20 +1148,9 @@ static void ret_interrupt(){
 
 
 /*
- *  Instruction set with disassembly, callback and parameters
- */
-struct instruction {
-    char* disassembly;
-    void (*execute)();
-    void* exec_argv1;
-    void* exec_argv2;
-};
-
-
-/*
  * Instruction disassemblies copied from https://github.com/CTurt/Cinoop
  */
-const struct instruction instructions[256] = {
+static const struct instruction instructions[256] = {
     { "NOP", nop},                          // 0x00
     { "LD BC, 0x%04X", load16bit_operand, &registers.bc},                // 0x01
     { "LD (BC), A", load8bit_to_mem, &registers.bc, &registers.a },                   // 0x02
@@ -1514,9 +1409,8 @@ const struct instruction instructions[256] = {
     { "RST 0x38",  rst, (void*) 0x38},                     // 0xff
 };
 
-// TODO: Jump instructions take more cycles if the condition is true
 
-const unsigned char instructions_ticks[256] = {
+static const unsigned char instructions_ticks[256] = {
     4, 12, 8, 8, 4, 4, 8, 4,     20, 8, 8, 8, 4, 4, 8, 4, // 0x0_
     4, 12, 8, 8, 4, 4, 8, 4,     12, 8, 8, 8, 4, 4, 8, 4, // 0x1_
     8, 12, 8, 8, 4, 4, 8, 4,     8, 8, 8, 8, 4, 4, 8, 4, // 0x2_
@@ -1541,7 +1435,7 @@ const unsigned char instructions_ticks[256] = {
 /*
  * Instructions with prefix CB
  */
-const struct instruction instructions_cb[256] = {
+static const struct instruction instructions_cb[256] = {
     { "RLC B", rlc_op, &registers.b},           // 0x00
     { "RLC C", rlc_op, &registers.c},           // 0x01
     { "RLC D", rlc_op, &registers.d},           // 0x02
@@ -1800,7 +1694,7 @@ const struct instruction instructions_cb[256] = {
     { "SET 7, A", set_op, (void*) 7, &registers.a},      // 0xff
 };
 
-const unsigned char instructions_cb_ticks[256] = {
+static const unsigned char instructions_cb_ticks[256] = {
     8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x0_
     8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x1_
     8, 8, 8, 8, 8,  8, 16, 8,  8, 8, 8, 8, 8, 8, 16, 8, // 0x2_

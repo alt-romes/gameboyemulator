@@ -1,17 +1,7 @@
-/*
- * Gameboy Emulator: Pixel Processing Unit
- *
- * Resources:
- *
- * > General
- * https://www.youtube.com/watch?v=HyzD8pNlpwI
- *
- * > LCD
- * http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
- *
- * > OpenGL Textures
- * https://learnopengl.com/Getting-started/Textures
- */
+#include <stdio.h>
+#include <stdlib.h>
+
+
 #ifdef __APPLE__
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -22,7 +12,11 @@
 #include <SDL.h>
 #endif
 
-#define SCREEN_MULTIPLIER 2
+
+#include "ppu.h"
+#include "memory.h"
+#include "cpu.h"
+
 
 static const int TOTAL_SCANLINE_CYCLES = 456;
 
@@ -234,13 +228,10 @@ static void handle_input(GLFWwindow* window, int key, int scancode, int action, 
 /*---- Rendering --------------------------------------------------*/
 
 
-#define SCREEN_WIDTH 160
-#define SCREEN_HEIGHT 144
-
 static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
 
 #ifdef __APPLE__
-GLFWwindow* window;
+static GLFWwindow* window;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -258,12 +249,13 @@ static void window_size_callback(GLFWwindow* window, int width, int height) {
 #endif
 
 #ifdef _WIN32
-SDL_Window* window = NULL;
-SDL_Renderer * renderer = NULL;
-SDL_Texture * texture = NULL;
-SDL_Event e;
+static SDL_Window* window = NULL;
+static SDL_Renderer * renderer = NULL;
+static SDL_Texture * texture = NULL;
+static SDL_Event e;
 #endif
-static void init_gui() {
+
+void init_gui() {
 #ifdef __APPLE__
     /* Initialize the library */
     glfwInit();
@@ -425,7 +417,7 @@ static void init_gui() {
 }
 
 
-static void render_frame() {
+void render_frame() {
     if (graphics_enabled) {
 
 #ifdef __APPLE__
@@ -541,8 +533,10 @@ static void render_sprites() {
         unsigned char attributes; // byte 3
         mmu_read8bit(&attributes, + OAM_START + sprite_index + 3);
 
+        int hasPriorityOverBackground = !(attributes & 0x80); // if bit7 is 0
 
         // Is the scanline passing through this sprite 
+        // And is the OBJ-to-BG Priority such that the sprite should be drawn above the background
         if (*lcd_ly < (ypos + sprite_ysize) && *lcd_ly >= ypos) {
 
             // Drawing sprite
@@ -589,6 +583,7 @@ static void render_sprites() {
             palette_colors[1] = (palette_register >> 2) & 0x3;
             palette_colors[0] = palette_register & 0x3;
 
+            /* printf("Palette is the following for color 0 1 2 3: %d %d %d %d\n", palette_colors[0], palette_colors[1], palette_colors[2], palette_colors[3]); */
 
             // Draw 8 horizontal pixels of sprite in scanline
             for (int horizontal_pixel=0; horizontal_pixel<8; horizontal_pixel++) {
@@ -607,6 +602,10 @@ static void render_sprites() {
 
                 // Color index 0 is transparent for sprites
                 if (pixel_color == 0)
+                    continue;
+
+                // If doesn't have priority and BG is not white, skip
+                if (!hasPriorityOverBackground && scanlinesbuffer[(*lcd_ly)*160 + xpos + horizontal_pixel] != 255)
                     continue;
 
                 scanlinesbuffer[(*lcd_ly)*160 + xpos + horizontal_pixel] = (3-palette_colors[pixel_color])*85; // Do 3-color bc 0 = white and 3 = black and 0 is black in rgb
