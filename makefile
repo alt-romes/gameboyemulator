@@ -21,14 +21,14 @@ DEPENDENCIES = $(wildcard $(IDIR)/*.h)
 #
 # List of object files needed to produce the executable - this is will be
 # 	used to say all .c files must be compiled into .o objects
-OBJECTS = $(patsubst %.c,%.o,$(wildcard $(SDIR)/*.c))
+OBJECTS = $(patsubst $(SDIR)/%.c,$(ODIR)/%.o,$(wildcard $(SDIR)/*.c))
 
 
 # Specifying objects as a dependency makes the compiler first compile the individual c files into objects, and only then build the executable
 # ($<) is the first item in the dependencies list, ($@) is the left side of the rule's "":"" 
 #
 # Rule to describe how all .c files must be compiled into .o files with the needed dependencies
-%.o: %.c $(DEPENDENCIES)
+$(ODIR)/%.o: $(SDIR)/%.c $(DEPENDENCIES)
 	$(CC) $(INCLUDES) -c $< -o $@ $(CFLAGS)
 
 # ($^) is the right side of the rule's "":""
