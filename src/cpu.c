@@ -113,6 +113,17 @@ static void load8bit(unsigned char * destination, unsigned char * source) {
 
 }
 
+static void load8bit_debug(unsigned char * destination, unsigned char * source) {
+
+    assert(!(source >= &memory[0] && source < &memory[0x10000-1]));
+    assert(!(destination >= &memory[0] && destination < &memory[0x10000-1]));
+
+    printf("ld d, d: %x\n", *source);
+
+    *destination = *source;
+
+}
+
 static void load8bit_operand(unsigned char * destination, void* _unused) {
 
     unsigned char operand = read8bit_operand();
@@ -1233,7 +1244,7 @@ static const struct instruction instructions[256] = {
     { "LD C, A", load8bit, &registers.c, &registers.a},                      // 0x4f
     { "LD D, B", load8bit, &registers.d, &registers.b},                      // 0x50
     { "LD D, C", load8bit, &registers.d, &registers.c},                      // 0x51
-    { "LD D, D", load8bit, &registers.d, &registers.d},                      // 0x52
+    { "LD D, D", load8bit_debug, &registers.d, &registers.d},                      // 0x52
     { "LD D, E", load8bit, &registers.d, &registers.e},                      // 0x53
     { "LD D, H", load8bit, &registers.d, &registers.h},                      // 0x54
     { "LD D, L", load8bit, &registers.d, &registers.l},                      // 0x55
@@ -1743,7 +1754,7 @@ static void process_interrupts() {
          */
         if ( (*interrupt_request_register & test_mask) & *interrupt_enable_register ) {
 
-            // When an interrupt is requested, the cpu is no longer halted;
+            // When an enabled interrupt is requested, the cpu is no longer halted;
             halted = 0;
 
             if ( interrupt_master_enable ) {
@@ -1782,10 +1793,6 @@ static void process_interrupts() {
 /*---- Main Logic and Execution -----------------------------------*/
 
 static int execute() {
-
-    /* printf("A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X SP: %04X PC: 00:%04X (%02X %02X %02X %02X)\n", registers.a, registers.f, registers.b, registers.c, registers.d, registers.e, registers.h, registers.l, registers.sp, registers.pc, memory[registers.pc], memory[registers.pc+1], memory[registers.pc+2], memory[registers.pc+3]); */
-
-    /* (*lcd_ly) = 0x90; // Stubbed for testing purposes; */
 
     // Use mmu read instead
     /* unsigned char opcode = memory[registers.pc++]; */
