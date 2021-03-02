@@ -1,6 +1,6 @@
 ## Simple Gameboy Emulator in C
 
-This emulator is capable of running `tetris`, and other MBC1 games with multiple ROM banks but without RAM banks, like `prince of persia`.
+This emulator is capable of running `tetris`, and other MBC1 games with multiple ROM banks and RAM banks, like `prince of persia`.
 
 The emulator passes all `cpu_instr` blarggs tests, and passes all MBC1 `mooneye-gb rom ram and bit` tests
 
