@@ -10,6 +10,7 @@ It's made completely in C. Most parts are fine except for the `memory.c` which d
 
 * Clone the repository
 * Install `glfw` with `brew install glfw` and `glew` with `brew install glew`
+* `mkdir obj`
 * Compile with `make`
 
 ## Running
