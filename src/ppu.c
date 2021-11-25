@@ -231,7 +231,6 @@ static void handle_input(GLFWwindow* window, int key, int scancode, int action, 
 
 static unsigned char scanlinesbuffer[SCREEN_WIDTH*SCREEN_HEIGHT];
 
-#ifdef __APPLE__
 static GLFWwindow* window;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -247,7 +246,6 @@ static void window_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-#endif
 
 #ifdef _WIN32
 static SDL_Window* window = NULL;
@@ -257,7 +255,6 @@ static SDL_Event e;
 #endif
 
 void init_gui() {
-#ifdef __APPLE__
     /* Initialize the library */
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -404,7 +401,6 @@ void init_gui() {
     /* Set input handler for key presses */
     glfwSetKeyCallback(window, handle_input);
 
-#endif
 
 #ifdef _WIN32
     SDL_Init( SDL_INIT_VIDEO );
@@ -415,13 +411,14 @@ void init_gui() {
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
 #endif
     graphics_enabled = 1;
+
+    printf("Window created\n");
 }
 
 
 void render_frame() {
     if (graphics_enabled) {
 
-#ifdef __APPLE__
         if(!glfwWindowShouldClose(window)) {
 
             /* Render here */
@@ -446,7 +443,6 @@ void render_frame() {
             glfwTerminate();
             exit(0);
         }
-#endif
 
 #ifdef _WIN32
         unsigned int pixels [SCREEN_WIDTH*SCREEN_HEIGHT];

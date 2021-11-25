@@ -1,6 +1,7 @@
 CC := gcc
-CFLAGS := -Wall -g -Werror=missing-declarations -Werror=redundant-decls
-LFLAGS := -framework OpenGL -lglew -lGLFW
+CFLAGS := -Wall -g
+# LFLAGS := -lglew -lGLFW
+LFLAGS := -lGLEW -lGLU -lGL -lglfw
 
  # Include directory
 IDIR := include
